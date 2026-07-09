@@ -1,4 +1,4 @@
-const CACHE_NAME = "tripsplit-web-v1";
+const CACHE_NAME = "tripsplit-web-v2";
 const ASSETS = [
   "./",
   "./index.html",
@@ -6,6 +6,10 @@ const ASSETS = [
   "./app.js",
   "./manifest.webmanifest",
   "./assets/trip-glass-bg.png",
+  "./assets/app-logo.png",
+  "./assets/app-logo-192.png",
+  "./assets/app-logo-512.png",
+  "./assets/favicon.png",
 ];
 
 self.addEventListener("install", (event) => {

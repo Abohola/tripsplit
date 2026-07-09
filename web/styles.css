@@ -179,8 +179,22 @@ label {
 }
 
 .brand {
-  display: grid;
-  gap: 2px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.brand-logo {
+  width: clamp(48px, 9vw, 68px);
+  height: clamp(48px, 9vw, 68px);
+  flex: 0 0 auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.44),
+    0 12px 24px rgba(82, 224, 196, 0.14);
 }
 
 .brand h1,
@@ -193,6 +207,7 @@ label {
 .brand h1 {
   font-size: clamp(2rem, 5vw, 3.5rem);
   line-height: 1;
+  overflow-wrap: anywhere;
 }
 
 .brand span,

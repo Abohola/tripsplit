@@ -5,5 +5,19 @@
   "display": "standalone",
   "background_color": "#05070b",
   "theme_color": "#05070b",
-  "description": "Split trip expenses across selected friends."
+  "description": "Split trip expenses across selected friends.",
+  "icons": [
+    {
+      "src": "assets/app-logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/app-logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }

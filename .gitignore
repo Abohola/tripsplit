@@ -13,5 +13,7 @@ externalNativeBuild/
 
 web/server.log
 web/server.err
+web/server-*.log
+web/server-*.err
 
 dist/

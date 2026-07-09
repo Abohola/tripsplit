@@ -87,4 +87,42 @@ class SettlementCalculatorTest {
         )
         assertEquals(100L, trip.expenses.sumOf { it.amountCents })
     }
+
+    @Test
+    fun payerDoesNotNeedToBeIncludedInParticipants() {
+        val trip = Trip(
+            id = "trip",
+            name = "Beach",
+            code = "GHI789",
+            createdAt = 0L,
+            members = listOf(
+                Member("admin", "Admin", isAdmin = true),
+                Member("a", "A"),
+                Member("b", "B"),
+            ),
+            expenses = listOf(
+                Expense(
+                    id = "kayak",
+                    title = "Kayak",
+                    amountCents = 4_000L,
+                    payerId = "a",
+                    participantIds = listOf("b"),
+                    createdAt = 1L,
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                MemberBalance("admin", 0L),
+                MemberBalance("a", 4_000L),
+                MemberBalance("b", -4_000L),
+            ),
+            SettlementCalculator.memberBalances(trip),
+        )
+        assertEquals(
+            listOf(Transfer(fromMemberId = "b", toMemberId = "a", amountCents = 4_000L)),
+            SettlementCalculator.transfers(trip),
+        )
+    }
 }

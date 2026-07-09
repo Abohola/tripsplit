@@ -97,8 +97,11 @@ function entryTemplate() {
   return `
     <section class="topbar glass">
       <div class="brand">
-        <h1>TripSplit</h1>
-        <span>Dark glass trip expenses</span>
+        <img class="brand-logo" src="assets/app-logo.png" alt="" />
+        <div>
+          <h1>TripSplit</h1>
+          <span>Liquid glass trip expenses</span>
+        </div>
       </div>
     </section>
     <section class="entry-grid">
@@ -147,8 +150,11 @@ function homeTemplate(trip, member) {
   return `
     <section class="topbar glass">
       <div class="brand">
-        <h1>${escapeHtml(trip.name)}</h1>
-        <span>Code ${escapeHtml(trip.code)}</span>
+        <img class="brand-logo" src="assets/app-logo.png" alt="" />
+        <div>
+          <h1>${escapeHtml(trip.name)}</h1>
+          <span>Code ${escapeHtml(trip.code)}</span>
+        </div>
       </div>
       <div class="actions">
         <span class="pill ${trip.isEnded ? "" : "live"}">${trip.isEnded ? "Ended" : "Active"}</span>
@@ -203,7 +209,7 @@ function expensesTemplate(trip, member) {
       </label>
       <label>Custom note (optional)<input name="title" autocomplete="off" ${trip.isEnded ? "disabled" : ""} /></label>
       <label>Amount<input name="amount" inputmode="decimal" ${trip.isEnded ? "disabled" : "required"} /></label>
-      <span class="muted">Paid by ${escapeHtml(member.name)}</span>
+      ${payerPickerTemplate(trip, member)}
       <details class="people-menu">
         <summary>${trip.members.length} people selected</summary>
         <div class="people-list">
@@ -234,6 +240,31 @@ function expensesTemplate(trip, member) {
           : `<div class="empty">No expenses yet</div>`
       }
     </section>
+  `;
+}
+
+function payerPickerTemplate(trip, member) {
+  if (!member.isAdmin) {
+    return `
+      <input type="hidden" name="payerId" value="${member.id}" />
+      <span class="muted">Paid by ${escapeHtml(member.name)}</span>
+    `;
+  }
+
+  return `
+    <label>Paid by
+      <select name="payerId" ${trip.isEnded ? "disabled" : ""}>
+        ${trip.members
+          .map(
+            (person) => `
+              <option value="${person.id}" ${person.id === member.id ? "selected" : ""}>
+                ${escapeHtml(person.name)}${person.isAdmin ? " Admin" : ""}
+              </option>
+            `,
+          )
+          .join("")}
+      </select>
+    </label>
   `;
 }
 
@@ -407,14 +438,18 @@ function addExpense(form) {
   const customTitle = String(data.get("title") ?? "").trim();
   const title = customTitle || expenseType;
   const amountCents = parseAmountCents(String(data.get("amount") ?? ""));
+  const requestedPayerId = String(data.get("payerId") ?? member.id);
+  const payerId = member.isAdmin ? requestedPayerId : member.id;
   const participantIds = data.getAll("participant").map(String);
+  const payerExists = trip.members.some((person) => person.id === payerId);
+  if (!payerExists) return;
   if (!title || amountCents <= 0 || participantIds.length === 0) return;
 
   trip.expenses.push({
     id: newId("expense"),
     title,
     amountCents,
-    payerId: member.id,
+    payerId,
     participantIds,
     createdAt: Date.now(),
   });

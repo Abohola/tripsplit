@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -184,22 +185,23 @@ fun TripSplitApp(store: TripStore) {
         }
     }
 
-    val handleAddExpense: (String, Long, Set<String>) -> Unit = { rawTitle, amountCents, participantIds ->
+    val handleAddExpense: (String, Long, Set<String>, String) -> Unit = { rawTitle, amountCents, participantIds, payerId ->
         val trip = currentTrip
-        val payer = currentMember
         val title = rawTitle.trim()
         when {
-            trip == null || payer == null -> Unit
+            trip == null || currentMember == null -> Unit
             trip.isEnded -> toast(context, "This trip has ended")
             title.isBlank() -> toast(context, "Add what was paid for")
             amountCents <= 0L -> toast(context, "Add an amount")
             participantIds.isEmpty() -> toast(context, "Choose who used it")
+            trip.members.none { it.id == payerId } -> toast(context, "Choose who paid")
+            !currentMember.isAdmin && payerId != currentMember.id -> toast(context, "Only admins can add expenses for others")
             else -> {
                 val expense = Expense(
                     id = newId("expense"),
                     title = title,
                     amountCents = amountCents,
-                    payerId = payer.id,
+                    payerId = payerId,
                     participantIds = participantIds.toList(),
                     createdAt = System.currentTimeMillis(),
                 )
@@ -300,12 +302,25 @@ private fun EntryScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(
-                    text = "TripSplit",
-                    style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    LogoMark(size = 58)
+                    Column {
+                        Text(
+                            text = "TripSplit",
+                            style = MaterialTheme.typography.headlineLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                        )
+                        Text(
+                            text = "Liquid glass trip expenses",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
 
                 SectionCard {
                     Text("Create trip", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -399,7 +414,7 @@ private fun TripHomeScreen(
     currentMember: Member,
     onShowEntry: () -> Unit,
     onSwitchMember: (String) -> Unit,
-    onAddExpense: (String, Long, Set<String>) -> Unit,
+    onAddExpense: (String, Long, Set<String>, String) -> Unit,
     onAddGuest: (String) -> Unit,
     onPromote: (String) -> Unit,
     onEndTrip: () -> Unit,
@@ -419,9 +434,15 @@ private fun TripHomeScreen(
                         actionIconContentColor = Color.White,
                     ),
                     title = {
-                        Column {
-                            Text(trip.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("Code ${trip.code}", style = MaterialTheme.typography.labelMedium)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            LogoMark(size = 42)
+                            Column {
+                                Text(trip.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text("Code ${trip.code}", style = MaterialTheme.typography.labelMedium)
+                            }
                         }
                     },
                     actions = {
@@ -551,22 +572,61 @@ private fun MemberPicker(
 }
 
 @Composable
+private fun ExpensePayerPicker(
+    members: List<Member>,
+    payerId: String,
+    enabled: Boolean,
+    onPayerSelected: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val payer = members.firstOrNull { it.id == payerId }
+
+    Box {
+        LiquidSecondaryButton(
+            text = payer?.name ?: "Choose payer",
+            onClick = { expanded = true },
+            enabled = enabled,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            members.forEach { member ->
+                DropdownMenuItem(
+                    text = {
+                        Text(member.name + if (member.isAdmin) "  Admin" else "")
+                    },
+                    onClick = {
+                        onPayerSelected(member.id)
+                        expanded = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ExpensesTab(
     trip: Trip,
     currentMember: Member,
-    onAddExpense: (String, Long, Set<String>) -> Unit,
+    onAddExpense: (String, Long, Set<String>, String) -> Unit,
 ) {
     val context = LocalContext.current
     var title by rememberSaveable(trip.id) { mutableStateOf("") }
     var amount by rememberSaveable(trip.id) { mutableStateOf("") }
     var selectedExpenseType by rememberSaveable(trip.id) { mutableStateOf(ExpenseTypePresets.first()) }
+    var selectedPayerId by rememberSaveable(trip.id) { mutableStateOf(currentMember.id) }
     var selectedParticipantIds by remember(trip.id, trip.members.map { it.id }) {
         mutableStateOf(trip.members.map { it.id }.toSet())
     }
 
-    LaunchedEffect(trip.members) {
+    LaunchedEffect(trip.members, currentMember) {
         val memberIds = trip.members.map { it.id }.toSet()
         selectedParticipantIds = selectedParticipantIds.intersect(memberIds).ifEmpty { memberIds }
+        selectedPayerId = when {
+            !currentMember.isAdmin -> currentMember.id
+            selectedPayerId !in memberIds -> currentMember.id
+            else -> selectedPayerId
+        }
     }
 
     Column(
@@ -612,7 +672,22 @@ private fun ExpensesTab(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
-            Text("Paid by ${currentMember.name}", style = MaterialTheme.typography.bodyMedium)
+            if (currentMember.isAdmin) {
+                Text(
+                    text = "Paid by",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                ExpensePayerPicker(
+                    members = trip.members,
+                    payerId = selectedPayerId,
+                    enabled = !trip.isEnded,
+                    onPayerSelected = { selectedPayerId = it },
+                )
+            } else {
+                Text("Paid by ${currentMember.name}", style = MaterialTheme.typography.bodyMedium)
+            }
             Spacer(Modifier.height(8.dp))
             PeopleDropdown(
                 members = trip.members,
@@ -629,7 +704,7 @@ private fun ExpensesTab(
                         toast(context, "Enter a valid amount")
                     } else {
                         val expenseTitle = title.trim().ifBlank { selectedExpenseType }
-                        onAddExpense(expenseTitle, cents, selectedParticipantIds)
+                        onAddExpense(expenseTitle, cents, selectedParticipantIds, selectedPayerId)
                         title = ""
                         amount = ""
                         selectedExpenseType = ExpenseTypePresets.first()
@@ -995,6 +1070,19 @@ private fun AdminTab(
             },
         )
     }
+}
+
+@Composable
+private fun LogoMark(size: Int) {
+    Image(
+        painter = painterResource(id = R.drawable.app_logo),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(size.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .border(BorderStroke(1.dp, GlassBorderBright), RoundedCornerShape(8.dp)),
+    )
 }
 
 @Composable
