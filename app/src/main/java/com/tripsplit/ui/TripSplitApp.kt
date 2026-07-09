@@ -25,7 +25,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -82,15 +81,16 @@ import kotlin.random.Random
 
 private val GlassShape = RoundedCornerShape(8.dp)
 private val LiquidShape = RoundedCornerShape(28.dp)
-private val GlassPanel = Color.White.copy(alpha = 0.18f)
-private val GlassPanelStrong = Color.White.copy(alpha = 0.24f)
+private val GlassPanel = Color.White.copy(alpha = 0.06f)
+private val GlassPanelStrong = Color.White.copy(alpha = 0.11f)
+private val GlassInk = Color(0xFF061A2A).copy(alpha = 0.16f)
 private val GlassBorder = Color.White.copy(alpha = 0.34f)
-private val GlassBorderBright = Color.White.copy(alpha = 0.56f)
-private val AccentMint = Color(0xFF52E0C4)
-private val AccentIndigo = Color(0xFF9FA9FF)
-private val AccentAmber = Color(0xFFFFB45E)
-private val AccentPink = Color(0xFFFF6FD8)
-private val InkOnGlow = Color(0xFF061412)
+private val GlassBorderBright = Color.White.copy(alpha = 0.62f)
+private val AccentMint = Color(0xFF48EAD9)
+private val AccentIndigo = Color(0xFF77B9FF)
+private val AccentAmber = Color(0xFFFFC06E)
+private val AccentPink = Color(0xFFD86DFF)
+private val InkOnGlow = Color(0xFF041213)
 private val ExpenseTypePresets = listOf(
     "Groceries",
     "Food",
@@ -473,12 +473,13 @@ private fun TripHomeScreen(
                         .background(
                             Brush.linearGradient(
                                 listOf(
-                                    Color.White.copy(alpha = 0.24f),
-                                    Color(0xFF1D2B3A).copy(alpha = 0.72f),
+                                    Color.White.copy(alpha = 0.18f),
+                                    Color.White.copy(alpha = 0.035f),
+                                    GlassInk,
                                 ),
                             ),
                         )
-                        .border(BorderStroke(1.dp, GlassBorderBright), GlassShape),
+                        .border(BorderStroke(1.dp, GlassBorder), GlassShape),
                 ) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
@@ -535,11 +536,30 @@ private fun TripStatusHeader(
                 )
             }
             Spacer(Modifier.width(12.dp))
-            AssistChip(
-                onClick = {},
-                label = { Text(if (trip.isEnded) "Ended" else "Active") },
-            )
+            StatusPill(text = if (trip.isEnded) "Ended" else "Active", live = !trip.isEnded)
         }
+    }
+}
+
+@Composable
+private fun StatusPill(text: String, live: Boolean) {
+    val border = if (live) AccentMint.copy(alpha = 0.58f) else GlassBorder
+    val fill = if (live) AccentMint.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.08f)
+
+    Box(
+        modifier = Modifier
+            .clip(LiquidShape)
+            .background(fill)
+            .border(BorderStroke(1.dp, border), LiquidShape)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -809,13 +829,13 @@ private fun LiquidChoiceChip(
     onClick: () -> Unit,
 ) {
     val brush = if (selected) {
-        Brush.horizontalGradient(listOf(AccentMint, Color(0xFF70A9FF), AccentPink))
+        Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.86f), AccentMint, AccentIndigo))
     } else {
         Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = 0.22f),
-                Color.White.copy(alpha = 0.10f),
-                Color(0xFF1E2A38).copy(alpha = 0.42f),
+                Color.White.copy(alpha = 0.20f),
+                Color.White.copy(alpha = 0.04f),
+                GlassInk,
             ),
         )
     }
@@ -844,7 +864,7 @@ private fun LiquidChoiceChip(
                         listOf(
                             Color.White.copy(alpha = if (selected) 0.82f else 0.46f),
                             AccentMint.copy(alpha = if (selected) 0.78f else 0.24f),
-                            AccentPink.copy(alpha = if (selected) 0.58f else 0.18f),
+                            AccentPink.copy(alpha = if (selected) 0.42f else 0.14f),
                         ),
                     ),
                 ),
@@ -1096,7 +1116,14 @@ private fun LiquidPrimaryButton(
     val enabledBrush = if (danger) {
         Brush.horizontalGradient(listOf(Color(0xFFFF6B7A), AccentPink, AccentAmber))
     } else {
-        Brush.horizontalGradient(listOf(AccentMint, Color(0xFF70A9FF), AccentPink))
+        Brush.horizontalGradient(
+            listOf(
+                Color.White.copy(alpha = 0.90f),
+                AccentMint,
+                AccentIndigo,
+                AccentPink,
+            ),
+        )
     }
     val disabledBrush = Brush.horizontalGradient(
         listOf(
@@ -1118,7 +1145,7 @@ private fun LiquidPrimaryButton(
         ),
         modifier = modifier
             .height(52.dp)
-            .shadow(12.dp, LiquidShape, clip = false)
+            .shadow(10.dp, LiquidShape, clip = false)
             .clip(LiquidShape)
             .background(if (enabled) enabledBrush else disabledBrush)
             .border(
@@ -1127,8 +1154,8 @@ private fun LiquidPrimaryButton(
                     Brush.horizontalGradient(
                         listOf(
                             Color.White.copy(alpha = 0.88f),
-                            AccentMint.copy(alpha = if (danger) 0.20f else 0.78f),
-                            AccentPink.copy(alpha = 0.62f),
+                            AccentMint.copy(alpha = if (danger) 0.20f else 0.84f),
+                            AccentPink.copy(alpha = 0.56f),
                         ),
                     ),
                 ),
@@ -1148,9 +1175,9 @@ private fun LiquidSecondaryButton(
 ) {
     val enabledBrush = Brush.linearGradient(
         listOf(
-            Color.White.copy(alpha = 0.25f),
-            Color(0xFF223146).copy(alpha = 0.74f),
-            Color.White.copy(alpha = 0.10f),
+            Color.White.copy(alpha = 0.22f),
+            Color.White.copy(alpha = 0.045f),
+            Color(0xFF061A2A).copy(alpha = 0.13f),
         ),
     )
     val disabledBrush = Brush.linearGradient(
@@ -1181,10 +1208,10 @@ private fun LiquidSecondaryButton(
                     1.dp,
                     Brush.horizontalGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.66f),
-                            AccentIndigo.copy(alpha = 0.46f),
-                            AccentPink.copy(alpha = 0.34f),
-                            Color.White.copy(alpha = 0.28f),
+                            Color.White.copy(alpha = 0.72f),
+                            AccentIndigo.copy(alpha = 0.36f),
+                            AccentPink.copy(alpha = 0.18f),
+                            Color.White.copy(alpha = 0.30f),
                         ),
                     ),
                 ),
@@ -1203,14 +1230,15 @@ private fun SectionCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(18.dp, GlassShape, clip = false)
+            .shadow(14.dp, GlassShape, clip = false)
             .clip(GlassShape)
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.30f),
+                        Color.White.copy(alpha = 0.22f),
+                        Color.White.copy(alpha = 0.035f),
                         GlassPanel,
-                        Color(0xFF172331).copy(alpha = 0.64f),
+                        GlassInk,
                     ),
                 ),
             )
@@ -1219,10 +1247,10 @@ private fun SectionCard(
                     1.dp,
                     Brush.linearGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.68f),
-                            AccentMint.copy(alpha = 0.34f),
-                            AccentPink.copy(alpha = 0.24f),
-                            Color.White.copy(alpha = 0.34f),
+                            Color.White.copy(alpha = 0.70f),
+                            AccentMint.copy(alpha = 0.30f),
+                            AccentPink.copy(alpha = 0.16f),
+                            Color.White.copy(alpha = 0.30f),
                         ),
                     ),
                 ),
@@ -1247,10 +1275,10 @@ private fun GlassBackground(content: @Composable () -> Unit) {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF101922),
-                        Color(0xFF182634),
-                        Color(0xFF151D2C),
-                        Color(0xFF0A1018),
+                        Color(0xFF2D6F8A),
+                        Color(0xFF1C536D),
+                        Color(0xFF0C2A42),
+                        Color(0xFF07131D),
                     ),
                 ),
             ),
@@ -1259,7 +1287,7 @@ private fun GlassBackground(content: @Composable () -> Unit) {
             painter = painterResource(id = R.drawable.trip_glass_bg),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            alpha = 0.62f,
+            alpha = 0.96f,
             modifier = Modifier.fillMaxSize(),
         )
         Box(
@@ -1268,9 +1296,9 @@ private fun GlassBackground(content: @Composable () -> Unit) {
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color(0x55020409),
-                            Color(0x770A1018),
-                            Color(0xBB05070B),
+                            Color(0x04020409),
+                            Color(0x180A1A2A),
+                            Color(0x4D04070B),
                         ),
                     ),
                 ),
@@ -1311,15 +1339,15 @@ private fun glassTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Color.White,
     unfocusedTextColor = Color.White,
     disabledTextColor = Color.White.copy(alpha = 0.56f),
-    focusedContainerColor = Color.White.copy(alpha = 0.16f),
-    unfocusedContainerColor = Color.White.copy(alpha = 0.11f),
+    focusedContainerColor = Color(0xFF061A2A).copy(alpha = 0.24f),
+    unfocusedContainerColor = Color(0xFF061A2A).copy(alpha = 0.18f),
     disabledContainerColor = Color.White.copy(alpha = 0.06f),
     focusedBorderColor = AccentMint.copy(alpha = 0.96f),
-    unfocusedBorderColor = GlassBorderBright,
+    unfocusedBorderColor = GlassBorderBright.copy(alpha = 0.82f),
     disabledBorderColor = GlassBorder,
     cursorColor = AccentMint,
     focusedLabelColor = AccentMint,
-    unfocusedLabelColor = Color(0xFFE5EEF6),
+    unfocusedLabelColor = Color(0xFFEEF8FF),
     disabledLabelColor = Color.White.copy(alpha = 0.56f),
 )
 
@@ -1327,7 +1355,7 @@ private fun glassTextFieldColors() = OutlinedTextFieldDefaults.colors(
 private fun GlassDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(vertical = 8.dp),
-        color = Color.White.copy(alpha = 0.12f),
+        color = Color.White.copy(alpha = 0.16f),
     )
 }
 
