@@ -1,5 +1,18 @@
 const STORAGE_KEY = "tripsplit.web.v1";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const EXPENSE_TYPE_PRESETS = [
+  "Groceries",
+  "Food",
+  "Gas",
+  "Rent",
+  "Lodging",
+  "Transport",
+  "Activities",
+  "Tickets",
+  "Drinks",
+  "Supplies",
+  "Other",
+];
 
 const app = document.querySelector("#app");
 let trips = loadTrips();
@@ -183,7 +196,12 @@ function expensesTemplate(trip, member) {
   return `
     <form class="card glass field-grid" data-action="add-expense">
       <h2>New expense</h2>
-      <label>What was paid for<input name="title" autocomplete="off" ${trip.isEnded ? "disabled" : "required"} /></label>
+      <label>Expense type
+        <div class="preset-grid">
+          ${expenseTypePresetsTemplate(trip.isEnded)}
+        </div>
+      </label>
+      <label>Custom note (optional)<input name="title" autocomplete="off" ${trip.isEnded ? "disabled" : ""} /></label>
       <label>Amount<input name="amount" inputmode="decimal" ${trip.isEnded ? "disabled" : "required"} /></label>
       <span class="muted">Paid by ${escapeHtml(member.name)}</span>
       <details class="people-menu">
@@ -217,6 +235,23 @@ function expensesTemplate(trip, member) {
       }
     </section>
   `;
+}
+
+function expenseTypePresetsTemplate(disabled) {
+  return EXPENSE_TYPE_PRESETS.map(
+    (type, index) => `
+      <label class="preset-chip">
+        <input
+          type="radio"
+          name="expenseType"
+          value="${escapeHtml(type)}"
+          ${index === 0 ? "checked" : ""}
+          ${disabled ? "disabled" : ""}
+        />
+        <span>${escapeHtml(type)}</span>
+      </label>
+    `,
+  ).join("");
 }
 
 function expenseTemplate(trip, expense) {
@@ -368,7 +403,9 @@ function addExpense(form) {
   const member = currentMember();
   if (!trip || !member || trip.isEnded) return;
   const data = new FormData(form);
-  const title = String(data.get("title") ?? "").trim();
+  const expenseType = String(data.get("expenseType") ?? EXPENSE_TYPE_PRESETS[0]).trim();
+  const customTitle = String(data.get("title") ?? "").trim();
+  const title = customTitle || expenseType;
   const amountCents = parseAmountCents(String(data.get("amount") ?? ""));
   const participantIds = data.getAll("participant").map(String);
   if (!title || amountCents <= 0 || participantIds.length === 0) return;

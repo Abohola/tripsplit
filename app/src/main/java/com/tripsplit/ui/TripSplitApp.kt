@@ -6,11 +6,13 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,7 +35,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.PrimaryTabRow
@@ -52,6 +53,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -77,13 +80,29 @@ import java.text.NumberFormat
 import kotlin.random.Random
 
 private val GlassShape = RoundedCornerShape(8.dp)
-private val GlassPanel = Color.White.copy(alpha = 0.10f)
-private val GlassPanelStrong = Color.White.copy(alpha = 0.14f)
-private val GlassBorder = Color.White.copy(alpha = 0.18f)
-private val GlassBorderBright = Color.White.copy(alpha = 0.30f)
+private val LiquidShape = RoundedCornerShape(28.dp)
+private val GlassPanel = Color.White.copy(alpha = 0.18f)
+private val GlassPanelStrong = Color.White.copy(alpha = 0.24f)
+private val GlassBorder = Color.White.copy(alpha = 0.34f)
+private val GlassBorderBright = Color.White.copy(alpha = 0.56f)
 private val AccentMint = Color(0xFF52E0C4)
 private val AccentIndigo = Color(0xFF9FA9FF)
 private val AccentAmber = Color(0xFFFFB45E)
+private val AccentPink = Color(0xFFFF6FD8)
+private val InkOnGlow = Color(0xFF061412)
+private val ExpenseTypePresets = listOf(
+    "Groceries",
+    "Food",
+    "Gas",
+    "Rent",
+    "Lodging",
+    "Transport",
+    "Activities",
+    "Tickets",
+    "Drinks",
+    "Supplies",
+    "Other",
+)
 
 @Composable
 fun TripSplitApp(store: TripStore) {
@@ -309,12 +328,11 @@ private fun EntryScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(12.dp))
-                    Button(
+                    LiquidPrimaryButton(
+                        text = "Create",
                         onClick = { onCreateTrip(tripName, adminName) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Create")
-                    }
+                    )
                 }
 
                 SectionCard {
@@ -338,12 +356,11 @@ private fun EntryScreen(
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Spacer(Modifier.height(12.dp))
-                    OutlinedButton(
+                    LiquidSecondaryButton(
+                        text = "Join",
                         onClick = { onJoinTrip(inviteCode, guestName) },
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Join")
-                    }
+                    )
                 }
 
                 if (savedTrips.isNotEmpty()) {
@@ -365,9 +382,7 @@ private fun EntryScreen(
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 }
-                                OutlinedButton(onClick = { onOpenTrip(trip.id) }) {
-                                    Text("Open")
-                                }
+                                LiquidSecondaryButton(text = "Open", onClick = { onOpenTrip(trip.id) })
                             }
                         }
                     }
@@ -429,16 +444,27 @@ private fun TripHomeScreen(
                 )
                 PrimaryTabRow(
                     selectedTabIndex = selectedTab,
-                    containerColor = GlassPanelStrong,
-                    contentColor = MaterialTheme.colorScheme.primary,
+                    containerColor = Color.Transparent,
+                    contentColor = Color.White,
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
-                        .border(BorderStroke(1.dp, GlassBorder), GlassShape),
+                        .clip(GlassShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.24f),
+                                    Color(0xFF1D2B3A).copy(alpha = 0.72f),
+                                ),
+                            ),
+                        )
+                        .border(BorderStroke(1.dp, GlassBorderBright), GlassShape),
                 ) {
                     tabs.forEachIndexed { index, title ->
                         Tab(
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
+                            selectedContentColor = Color.White,
+                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             text = { Text(title) },
                         )
                     }
@@ -504,9 +530,10 @@ private fun MemberPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        OutlinedButton(onClick = { expanded = true }) {
-            Text(currentMember.name + if (currentMember.isAdmin) "  Admin" else "")
-        }
+        LiquidSecondaryButton(
+            text = currentMember.name + if (currentMember.isAdmin) "  Admin" else "",
+            onClick = { expanded = true },
+        )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             members.forEach { member ->
                 DropdownMenuItem(
@@ -532,6 +559,7 @@ private fun ExpensesTab(
     val context = LocalContext.current
     var title by rememberSaveable(trip.id) { mutableStateOf("") }
     var amount by rememberSaveable(trip.id) { mutableStateOf("") }
+    var selectedExpenseType by rememberSaveable(trip.id) { mutableStateOf(ExpenseTypePresets.first()) }
     var selectedParticipantIds by remember(trip.id, trip.members.map { it.id }) {
         mutableStateOf(trip.members.map { it.id }.toSet())
     }
@@ -551,10 +579,22 @@ private fun ExpensesTab(
         SectionCard {
             Text("New expense", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Expense type",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            ExpenseTypePicker(
+                selectedType = selectedExpenseType,
+                enabled = !trip.isEnded,
+                onTypeSelected = { selectedExpenseType = it },
+            )
+            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("What was paid for") },
+                label = { Text("Custom note (optional)") },
                 singleLine = true,
                 enabled = !trip.isEnded,
                 colors = glassTextFieldColors(),
@@ -581,23 +621,24 @@ private fun ExpensesTab(
                 onSelectionChange = { selectedParticipantIds = it },
             )
             Spacer(Modifier.height(12.dp))
-            Button(
+            LiquidPrimaryButton(
+                text = "Add expense",
                 onClick = {
                     val cents = parseAmountCents(amount)
                     if (cents == null) {
                         toast(context, "Enter a valid amount")
                     } else {
-                        onAddExpense(title, cents, selectedParticipantIds)
+                        val expenseTitle = title.trim().ifBlank { selectedExpenseType }
+                        onAddExpense(expenseTitle, cents, selectedParticipantIds)
                         title = ""
                         amount = ""
+                        selectedExpenseType = ExpenseTypePresets.first()
                         selectedParticipantIds = trip.members.map { it.id }.toSet()
                     }
                 },
                 enabled = !trip.isEnded,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Add expense")
-            }
+            )
         }
 
         Text("Expenses", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -626,13 +667,12 @@ private fun PeopleDropdown(
     }
 
     Box {
-        OutlinedButton(
+        LiquidSecondaryButton(
+            text = label,
             onClick = { expanded = true },
             enabled = enabled,
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(label)
-        }
+        )
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -661,6 +701,82 @@ private fun PeopleDropdown(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ExpenseTypePicker(
+    selectedType: String,
+    enabled: Boolean,
+    onTypeSelected: (String) -> Unit,
+) {
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        ExpenseTypePresets.forEach { type ->
+            LiquidChoiceChip(
+                text = type,
+                selected = selectedType == type,
+                enabled = enabled,
+                onClick = { onTypeSelected(type) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiquidChoiceChip(
+    text: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    val brush = if (selected) {
+        Brush.horizontalGradient(listOf(AccentMint, Color(0xFF70A9FF), AccentPink))
+    } else {
+        Brush.linearGradient(
+            listOf(
+                Color.White.copy(alpha = 0.22f),
+                Color.White.copy(alpha = 0.10f),
+                Color(0xFF1E2A38).copy(alpha = 0.42f),
+            ),
+        )
+    }
+    val contentColor = if (selected) InkOnGlow else Color.White
+
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = LiquidShape,
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, disabledElevation = 0.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = contentColor,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = Color.White.copy(alpha = 0.56f),
+        ),
+        contentPadding = PaddingValues(horizontal = 13.dp, vertical = 0.dp),
+        modifier = Modifier
+            .height(38.dp)
+            .clip(LiquidShape)
+            .background(brush)
+            .border(
+                BorderStroke(
+                    1.dp,
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.White.copy(alpha = if (selected) 0.82f else 0.46f),
+                            AccentMint.copy(alpha = if (selected) 0.78f else 0.24f),
+                            AccentPink.copy(alpha = if (selected) 0.58f else 0.18f),
+                        ),
+                    ),
+                ),
+                LiquidShape,
+            ),
+    ) {
+        Text(text = text, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -787,16 +903,15 @@ private fun AdminTab(
             Spacer(Modifier.height(8.dp))
             Text(trip.code, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(12.dp))
-            OutlinedButton(
+            LiquidSecondaryButton(
+                text = "Copy code",
                 onClick = {
                     clipboard.setText(AnnotatedString(trip.code))
                     toast(context, "Code copied")
                 },
                 enabled = !trip.isEnded,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Copy code")
-            }
+            )
         }
 
         SectionCard {
@@ -812,16 +927,15 @@ private fun AdminTab(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
-            Button(
+            LiquidPrimaryButton(
+                text = "Add guest",
                 onClick = {
                     onAddGuest(guestName)
                     guestName = ""
                 },
                 enabled = !trip.isEnded,
                 modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Add guest")
-            }
+            )
         }
 
         SectionCard {
@@ -839,25 +953,23 @@ private fun AdminTab(
                         horizontalArrangement = Arrangement.SpaceBetween,
                     ) {
                         Text(member.name, style = MaterialTheme.typography.bodyLarge)
-                        OutlinedButton(
+                        LiquidSecondaryButton(
+                            text = "Promote",
                             onClick = { onPromote(member.id) },
                             enabled = !trip.isEnded,
-                        ) {
-                            Text("Promote")
-                        }
+                        )
                     }
                 }
             }
         }
 
-        Button(
+        LiquidPrimaryButton(
+            text = if (trip.isEnded) "Trip ended" else "End trip",
             onClick = { confirmEnd = true },
             enabled = !trip.isEnded,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (trip.isEnded) "Trip ended" else "End trip")
-        }
+            danger = true,
+        )
     }
 
     if (confirmEnd) {
@@ -886,15 +998,150 @@ private fun AdminTab(
 }
 
 @Composable
+private fun LiquidPrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    danger: Boolean = false,
+) {
+    val enabledBrush = if (danger) {
+        Brush.horizontalGradient(listOf(Color(0xFFFF6B7A), AccentPink, AccentAmber))
+    } else {
+        Brush.horizontalGradient(listOf(AccentMint, Color(0xFF70A9FF), AccentPink))
+    }
+    val disabledBrush = Brush.horizontalGradient(
+        listOf(
+            Color.White.copy(alpha = 0.12f),
+            Color.White.copy(alpha = 0.07f),
+        ),
+    )
+
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = LiquidShape,
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, disabledElevation = 0.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = if (danger) Color.White else InkOnGlow,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = Color.White.copy(alpha = 0.56f),
+        ),
+        modifier = modifier
+            .height(52.dp)
+            .shadow(12.dp, LiquidShape, clip = false)
+            .clip(LiquidShape)
+            .background(if (enabled) enabledBrush else disabledBrush)
+            .border(
+                BorderStroke(
+                    1.dp,
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.88f),
+                            AccentMint.copy(alpha = if (danger) 0.20f else 0.78f),
+                            AccentPink.copy(alpha = 0.62f),
+                        ),
+                    ),
+                ),
+                LiquidShape,
+            ),
+    ) {
+        Text(text = text, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun LiquidSecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val enabledBrush = Brush.linearGradient(
+        listOf(
+            Color.White.copy(alpha = 0.25f),
+            Color(0xFF223146).copy(alpha = 0.74f),
+            Color.White.copy(alpha = 0.10f),
+        ),
+    )
+    val disabledBrush = Brush.linearGradient(
+        listOf(
+            Color.White.copy(alpha = 0.08f),
+            Color.White.copy(alpha = 0.04f),
+        ),
+    )
+
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = LiquidShape,
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, disabledElevation = 0.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color.Transparent,
+            contentColor = Color.White,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = Color.White.copy(alpha = 0.54f),
+        ),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp),
+        modifier = modifier
+            .height(48.dp)
+            .clip(LiquidShape)
+            .background(if (enabled) enabledBrush else disabledBrush)
+            .border(
+                BorderStroke(
+                    1.dp,
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.66f),
+                            AccentIndigo.copy(alpha = 0.46f),
+                            AccentPink.copy(alpha = 0.34f),
+                            Color.White.copy(alpha = 0.28f),
+                        ),
+                    ),
+                ),
+                LiquidShape,
+            ),
+    ) {
+        Text(text = text, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun SectionCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(18.dp, GlassShape, clip = false)
+            .clip(GlassShape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.30f),
+                        GlassPanel,
+                        Color(0xFF172331).copy(alpha = 0.64f),
+                    ),
+                ),
+            )
+            .border(
+                BorderStroke(
+                    1.dp,
+                    Brush.linearGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.68f),
+                            AccentMint.copy(alpha = 0.34f),
+                            AccentPink.copy(alpha = 0.24f),
+                            Color.White.copy(alpha = 0.34f),
+                        ),
+                    ),
+                ),
+                GlassShape,
+            ),
         shape = GlassShape,
-        colors = CardDefaults.cardColors(containerColor = GlassPanel),
-        border = BorderStroke(1.dp, GlassBorder),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
@@ -912,10 +1159,10 @@ private fun GlassBackground(content: @Composable () -> Unit) {
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF020409),
-                        Color(0xFF071017),
-                        Color(0xFF120F1C),
-                        Color(0xFF05070B),
+                        Color(0xFF101922),
+                        Color(0xFF182634),
+                        Color(0xFF151D2C),
+                        Color(0xFF0A1018),
                     ),
                 ),
             ),
@@ -924,7 +1171,7 @@ private fun GlassBackground(content: @Composable () -> Unit) {
             painter = painterResource(id = R.drawable.trip_glass_bg),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            alpha = 0.42f,
+            alpha = 0.62f,
             modifier = Modifier.fillMaxSize(),
         )
         Box(
@@ -933,9 +1180,9 @@ private fun GlassBackground(content: @Composable () -> Unit) {
                 .background(
                     Brush.verticalGradient(
                         listOf(
-                            Color(0xAA020409),
-                            Color(0xCC071017),
-                            Color(0xEE05070B),
+                            Color(0x55020409),
+                            Color(0x770A1018),
+                            Color(0xBB05070B),
                         ),
                     ),
                 ),
@@ -943,25 +1190,25 @@ private fun GlassBackground(content: @Composable () -> Unit) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val hairline = 1.dp.toPx()
             drawLine(
-                color = AccentMint.copy(alpha = 0.22f),
+                color = AccentMint.copy(alpha = 0.34f),
                 start = Offset(-size.width * 0.10f, size.height * 0.18f),
                 end = Offset(size.width * 0.92f, size.height * 0.04f),
                 strokeWidth = hairline,
             )
             drawLine(
-                color = AccentIndigo.copy(alpha = 0.18f),
+                color = AccentIndigo.copy(alpha = 0.30f),
                 start = Offset(size.width * 0.06f, size.height * 0.88f),
                 end = Offset(size.width * 1.04f, size.height * 0.66f),
                 strokeWidth = hairline,
             )
             drawLine(
-                color = AccentAmber.copy(alpha = 0.16f),
+                color = AccentAmber.copy(alpha = 0.28f),
                 start = Offset(size.width * 0.72f, -size.height * 0.05f),
                 end = Offset(size.width * 0.98f, size.height * 0.46f),
                 strokeWidth = hairline,
             )
             drawRect(
-                color = Color.White.copy(alpha = 0.035f),
+                color = Color.White.copy(alpha = 0.08f),
                 topLeft = Offset(size.width * 0.05f, size.height * 0.08f),
                 size = androidx.compose.ui.geometry.Size(size.width * 0.90f, size.height * 0.84f),
                 style = Stroke(width = hairline),
@@ -975,17 +1222,17 @@ private fun GlassBackground(content: @Composable () -> Unit) {
 private fun glassTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Color.White,
     unfocusedTextColor = Color.White,
-    disabledTextColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
-    focusedContainerColor = Color.White.copy(alpha = 0.09f),
-    unfocusedContainerColor = Color.White.copy(alpha = 0.06f),
-    disabledContainerColor = Color.White.copy(alpha = 0.035f),
-    focusedBorderColor = AccentMint.copy(alpha = 0.86f),
+    disabledTextColor = Color.White.copy(alpha = 0.56f),
+    focusedContainerColor = Color.White.copy(alpha = 0.16f),
+    unfocusedContainerColor = Color.White.copy(alpha = 0.11f),
+    disabledContainerColor = Color.White.copy(alpha = 0.06f),
+    focusedBorderColor = AccentMint.copy(alpha = 0.96f),
     unfocusedBorderColor = GlassBorderBright,
     disabledBorderColor = GlassBorder,
     cursorColor = AccentMint,
     focusedLabelColor = AccentMint,
-    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-    disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
+    unfocusedLabelColor = Color(0xFFE5EEF6),
+    disabledLabelColor = Color.White.copy(alpha = 0.56f),
 )
 
 @Composable

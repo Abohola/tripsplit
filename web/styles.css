@@ -1,18 +1,19 @@
 :root {
   color-scheme: dark;
-  --bg: #05070b;
-  --panel: rgba(255, 255, 255, 0.1);
-  --panel-strong: rgba(255, 255, 255, 0.15);
-  --panel-soft: rgba(255, 255, 255, 0.065);
-  --line: rgba(255, 255, 255, 0.18);
-  --line-strong: rgba(255, 255, 255, 0.34);
+  --bg: #0a1018;
+  --panel: rgba(255, 255, 255, 0.18);
+  --panel-strong: rgba(255, 255, 255, 0.26);
+  --panel-soft: rgba(255, 255, 255, 0.11);
+  --line: rgba(255, 255, 255, 0.34);
+  --line-strong: rgba(255, 255, 255, 0.58);
   --text: #f4f7f8;
-  --muted: #bac6d0;
+  --muted: #d4dee7;
   --mint: #52e0c4;
   --indigo: #9fa9ff;
   --amber: #ffb45e;
+  --pink: #ff6fd8;
   --danger: #ff6b7a;
-  --shadow: rgba(0, 0, 0, 0.45);
+  --shadow: rgba(0, 0, 0, 0.36);
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -32,9 +33,9 @@ body {
   margin: 0;
   color: var(--text);
   background:
-    linear-gradient(rgba(5, 7, 11, 0.48), rgba(5, 7, 11, 0.8)),
+    linear-gradient(rgba(10, 16, 24, 0.28), rgba(7, 11, 17, 0.68)),
     url("assets/trip-glass-bg.png") center / cover fixed,
-    #05070b;
+    #0a1018;
 }
 
 body::before {
@@ -44,9 +45,9 @@ body::before {
   pointer-events: none;
   content: "";
   background:
-    linear-gradient(120deg, rgba(82, 224, 196, 0.14), transparent 38%),
-    linear-gradient(300deg, rgba(159, 169, 255, 0.13), transparent 45%),
-    linear-gradient(180deg, rgba(255, 180, 94, 0.08), transparent 34%);
+    linear-gradient(120deg, rgba(82, 224, 196, 0.2), transparent 42%),
+    linear-gradient(300deg, rgba(255, 111, 216, 0.16), transparent 45%),
+    linear-gradient(180deg, rgba(255, 180, 94, 0.11), transparent 34%);
 }
 
 button,
@@ -58,26 +59,36 @@ select {
 button {
   min-height: 44px;
   border: 0;
-  border-radius: 8px;
-  color: #051f1b;
-  background: linear-gradient(135deg, var(--mint), #8effe8);
+  border-radius: 999px;
+  color: #061412;
+  background:
+    linear-gradient(135deg, var(--mint), #70a9ff 52%, var(--pink)),
+    rgba(255, 255, 255, 0.26);
   font-weight: 760;
   cursor: pointer;
-  box-shadow: 0 12px 24px rgba(82, 224, 196, 0.18);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.72),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.18),
+    0 16px 34px rgba(82, 224, 196, 0.2);
+  text-shadow: none;
 }
 
 button.secondary,
 button.ghost,
 select {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid var(--line);
-  box-shadow: none;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.25), rgba(30, 43, 58, 0.72)),
+    rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--line-strong);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -10px 16px rgba(0, 0, 0, 0.16);
 }
 
 button.danger {
   color: white;
-  background: linear-gradient(135deg, var(--danger), #ff8b96);
+  background: linear-gradient(135deg, var(--danger), var(--pink), var(--amber));
   box-shadow: 0 12px 24px rgba(255, 107, 122, 0.18);
 }
 
@@ -94,7 +105,9 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(24, 34, 48, 0.72)),
+    rgba(255, 255, 255, 0.12);
   outline: none;
 }
 
@@ -141,10 +154,15 @@ label {
 .glass {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--panel);
-  box-shadow: 0 18px 44px var(--shadow);
-  backdrop-filter: blur(24px) saturate(145%);
-  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.3), rgba(23, 35, 49, 0.66) 62%, rgba(255, 255, 255, 0.15)),
+    var(--panel);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.42),
+    inset 0 -18px 32px rgba(0, 0, 0, 0.16),
+    0 18px 44px var(--shadow);
+  backdrop-filter: blur(28px) saturate(165%);
+  -webkit-backdrop-filter: blur(28px) saturate(165%);
 }
 
 .card {
@@ -211,7 +229,9 @@ label {
 
 .tabs {
   padding: 6px;
-  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .tabs button {
@@ -222,8 +242,11 @@ label {
 }
 
 .tabs button.active {
-  color: #051f1b;
-  background: linear-gradient(135deg, var(--mint), #8effe8);
+  color: #061412;
+  background: linear-gradient(135deg, var(--mint), #70a9ff, var(--pink));
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    0 12px 22px rgba(82, 224, 196, 0.18);
 }
 
 .field-grid {
@@ -263,8 +286,8 @@ label {
   padding: 5px 9px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 999px;
-  color: var(--muted);
-  background: rgba(255, 255, 255, 0.07);
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.12);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -278,7 +301,9 @@ label {
 .people-menu {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.07);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(28, 40, 56, 0.68)),
+    rgba(255, 255, 255, 0.12);
 }
 
 .people-menu summary {
@@ -306,6 +331,51 @@ label {
   width: 18px;
   min-height: 18px;
   accent-color: var(--mint);
+}
+
+.preset-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.preset-chip {
+  display: inline-flex;
+}
+
+.preset-chip input {
+  position: absolute;
+  width: 1px;
+  min-height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.preset-chip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 13px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: white;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(30, 43, 58, 0.62)),
+    rgba(255, 255, 255, 0.11);
+  font-size: 0.88rem;
+  font-weight: 720;
+  cursor: pointer;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.36);
+}
+
+.preset-chip input:checked + span {
+  color: #061412;
+  border-color: rgba(255, 255, 255, 0.7);
+  background: linear-gradient(135deg, var(--mint), #70a9ff, var(--pink));
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.74),
+    inset 0 -10px 18px rgba(0, 0, 0, 0.16),
+    0 12px 24px rgba(82, 224, 196, 0.2);
 }
 
 .empty {
