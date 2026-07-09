@@ -1,11 +1,20 @@
 package com.tripsplit.ui
 
 import android.widget.Toast
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,6 +29,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,9 +49,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -54,10 +64,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -66,6 +79,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tripsplit.data.Expense
 import com.tripsplit.data.Member
@@ -81,8 +95,6 @@ import kotlin.random.Random
 
 private val GlassShape = RoundedCornerShape(8.dp)
 private val LiquidShape = RoundedCornerShape(28.dp)
-private val GlassPanel = Color.White.copy(alpha = 0.06f)
-private val GlassPanelStrong = Color.White.copy(alpha = 0.11f)
 private val GlassInk = Color(0xFF061A2A).copy(alpha = 0.16f)
 private val GlassBorder = Color.White.copy(alpha = 0.34f)
 private val GlassBorderBright = Color.White.copy(alpha = 0.62f)
@@ -90,6 +102,11 @@ private val AccentMint = Color(0xFF48EAD9)
 private val AccentIndigo = Color(0xFF77B9FF)
 private val AccentAmber = Color(0xFFFFC06E)
 private val AccentPink = Color(0xFFD86DFF)
+private val AccentCoral = Color(0xFFFF6B9D)
+private val AccentLime = Color(0xFFB8F75A)
+private val AccentViolet = Color(0xFF8E7CFF)
+private val AccentSky = Color(0xFF34D6FF)
+private val DeepInk = Color(0xFF050510)
 private val InkOnGlow = Color(0xFF041213)
 private val ExpenseTypePresets = listOf(
     "Groceries",
@@ -302,23 +319,34 @@ private fun EntryScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    LogoMark(size = 58)
-                    Column {
-                        Text(
-                            text = "TripSplit",
-                            style = MaterialTheme.typography.headlineLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                        )
-                        Text(
-                            text = "Liquid glass trip expenses",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                SectionCard {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        LogoMark(size = 64)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "TripSplit",
+                                style = MaterialTheme.typography.headlineLarge,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White,
+                            )
+                            Text(
+                                text = "Group trip wallet",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        MiniGlowPill("Invite", AccentSky)
+                        MiniGlowPill("Spend", AccentLime)
+                        MiniGlowPill("Settle", AccentPink)
                     }
                 }
 
@@ -440,15 +468,25 @@ private fun TripHomeScreen(
                         ) {
                             LogoMark(size = 42)
                             Column {
-                                Text(trip.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                                Text(
+                                    trip.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
                                 Text("Code ${trip.code}", style = MaterialTheme.typography.labelMedium)
                             }
                         }
                     },
                     actions = {
-                        TextButton(onClick = onShowEntry) {
-                            Text("Trips")
-                        }
+                        LiquidSecondaryButton(
+                            text = "Trips",
+                            onClick = onShowEntry,
+                            modifier = Modifier
+                                .widthIn(min = 88.dp)
+                                .padding(end = 10.dp),
+                        )
                     },
                 )
             },
@@ -463,34 +501,13 @@ private fun TripHomeScreen(
                     currentMember = currentMember,
                     onSwitchMember = onSwitchMember,
                 )
-                PrimaryTabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.Transparent,
-                    contentColor = Color.White,
+                LiquidTabBar(
+                    tabs = tabs,
+                    selectedTab = selectedTab,
+                    onSelected = { selectedTab = it },
                     modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .clip(GlassShape)
-                        .background(
-                            Brush.linearGradient(
-                                listOf(
-                                    Color.White.copy(alpha = 0.18f),
-                                    Color.White.copy(alpha = 0.035f),
-                                    GlassInk,
-                                ),
-                            ),
-                        )
-                        .border(BorderStroke(1.dp, GlassBorder), GlassShape),
-                ) {
-                    tabs.forEachIndexed { index, title ->
-                        Tab(
-                            selected = selectedTab == index,
-                            onClick = { selectedTab = index },
-                            selectedContentColor = Color.White,
-                            unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            text = { Text(title) },
-                        )
-                    }
-                }
+                        .padding(horizontal = 16.dp),
+                )
                 when (selectedTab) {
                     0 -> ExpensesTab(
                         trip = trip,
@@ -517,11 +534,43 @@ private fun TripStatusHeader(
     currentMember: Member,
     onSwitchMember: (String) -> Unit,
 ) {
+    val totalCents = remember(trip.expenses) { trip.expenses.sumOf { it.amountCents } }
+
     SectionCard(
         modifier = Modifier
             .padding(horizontal = 16.dp, vertical = 12.dp)
             .fillMaxWidth(),
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Column {
+                Text(
+                    text = "Live trip board",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = formatMoney(totalCents),
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                )
+            }
+            StatusPill(text = if (trip.isEnded) "Ended" else "Active", live = !trip.isEnded)
+        }
+        Spacer(Modifier.height(14.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            StatTile("People", trip.members.size.toString(), AccentSky)
+            StatTile("Expenses", trip.expenses.size.toString(), AccentPink)
+            StatTile("Admins", trip.members.count { it.isAdmin }.toString(), AccentLime)
+        }
+        Spacer(Modifier.height(16.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -533,10 +582,9 @@ private fun TripStatusHeader(
                     members = trip.members,
                     currentMember = currentMember,
                     onSwitchMember = onSwitchMember,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Spacer(Modifier.width(12.dp))
-            StatusPill(text = if (trip.isEnded) "Ended" else "Active", live = !trip.isEnded)
         }
     }
 }
@@ -564,16 +612,183 @@ private fun StatusPill(text: String, live: Boolean) {
 }
 
 @Composable
+private fun MiniGlowPill(text: String, accent: Color) {
+    Box(
+        modifier = Modifier
+            .clip(LiquidShape)
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.20f),
+                        accent.copy(alpha = 0.28f),
+                        Color.White.copy(alpha = 0.07f),
+                    ),
+                ),
+            )
+            .border(BorderStroke(1.dp, accent.copy(alpha = 0.58f)), LiquidShape)
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun StatTile(label: String, value: String, accent: Color) {
+    Box(
+        modifier = Modifier
+            .clip(GlassShape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        accent.copy(alpha = 0.22f),
+                        Color.White.copy(alpha = 0.10f),
+                        Color(0xFF061222).copy(alpha = 0.18f),
+                    ),
+                ),
+            )
+            .border(BorderStroke(1.dp, accent.copy(alpha = 0.44f)), GlassShape)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+    ) {
+        Column {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun LiquidTabBar(
+    tabs: List<String>,
+    selectedTab: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(LiquidShape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.22f),
+                        AccentSky.copy(alpha = 0.10f),
+                        Color(0xFF041222).copy(alpha = 0.30f),
+                    ),
+                ),
+            )
+            .border(
+                BorderStroke(
+                    1.dp,
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.White.copy(alpha = 0.68f),
+                            AccentMint.copy(alpha = 0.36f),
+                            AccentPink.copy(alpha = 0.24f),
+                        ),
+                    ),
+                ),
+                LiquidShape,
+            )
+            .padding(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        tabs.forEachIndexed { index, title ->
+            val selected = selectedTab == index
+            val accent = when (index) {
+                0 -> AccentMint
+                1 -> AccentSky
+                else -> AccentPink
+            }
+            val interactionSource = remember { MutableInteractionSource() }
+            val pressed by interactionSource.collectIsPressedAsState()
+            val scale by animateFloatAsState(
+                targetValue = if (pressed) 0.96f else 1f,
+                animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+                label = "tabScale",
+            )
+            val selectedAlpha by animateFloatAsState(
+                targetValue = if (selected) 1f else 0f,
+                animationSpec = tween(180),
+                label = "tabSelected",
+            )
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(46.dp)
+                    .scale(scale)
+                    .clip(LiquidShape)
+                    .background(
+                        if (selected) {
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.88f),
+                                    accent,
+                                    AccentViolet.copy(alpha = 0.88f),
+                                ),
+                            )
+                        } else {
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.08f * (1f - selectedAlpha)),
+                                    Color.Transparent,
+                                ),
+                            )
+                        },
+                    )
+                    .border(
+                        BorderStroke(
+                            1.dp,
+                            if (selected) Color.White.copy(alpha = 0.74f) else Color.White.copy(alpha = 0.12f),
+                        ),
+                        LiquidShape,
+                    )
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                    ) { onSelected(index) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = title,
+                    color = if (selected) InkOnGlow else Color.White,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MemberPicker(
     members: List<Member>,
     currentMember: Member,
     onSwitchMember: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         LiquidSecondaryButton(
             text = currentMember.name + if (currentMember.isAdmin) "  Admin" else "",
             onClick = { expanded = true },
+            modifier = modifier,
         )
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             members.forEach { member ->
@@ -828,12 +1043,25 @@ private fun LiquidChoiceChip(
     enabled: Boolean,
     onClick: () -> Unit,
 ) {
+    val accent = expenseAccent(text)
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = when {
+            pressed -> 0.94f
+            selected -> 1.03f
+            else -> 1f
+        },
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "chipScale",
+    )
     val brush = if (selected) {
-        Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.86f), AccentMint, AccentIndigo))
+        Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.88f), accent, AccentViolet.copy(alpha = 0.88f)))
     } else {
         Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = 0.20f),
+                Color.White.copy(alpha = 0.22f),
+                accent.copy(alpha = 0.10f),
                 Color.White.copy(alpha = 0.04f),
                 GlassInk,
             ),
@@ -845,6 +1073,7 @@ private fun LiquidChoiceChip(
         onClick = onClick,
         enabled = enabled,
         shape = LiquidShape,
+        interactionSource = interactionSource,
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, disabledElevation = 0.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
@@ -855,6 +1084,7 @@ private fun LiquidChoiceChip(
         contentPadding = PaddingValues(horizontal = 13.dp, vertical = 0.dp),
         modifier = Modifier
             .height(38.dp)
+            .scale(scale)
             .clip(LiquidShape)
             .background(brush)
             .border(
@@ -863,7 +1093,7 @@ private fun LiquidChoiceChip(
                     Brush.horizontalGradient(
                         listOf(
                             Color.White.copy(alpha = if (selected) 0.82f else 0.46f),
-                            AccentMint.copy(alpha = if (selected) 0.78f else 0.24f),
+                            accent.copy(alpha = if (selected) 0.82f else 0.34f),
                             AccentPink.copy(alpha = if (selected) 0.42f else 0.14f),
                         ),
                     ),
@@ -871,33 +1101,87 @@ private fun LiquidChoiceChip(
                 LiquidShape,
             ),
     ) {
-        Text(text = text, fontWeight = FontWeight.SemiBold)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(LiquidShape)
+                    .background(if (selected) InkOnGlow.copy(alpha = 0.48f) else accent),
+            )
+            Text(text = text, fontWeight = FontWeight.Bold)
+        }
     }
 }
 
 @Composable
 private fun ExpenseCard(trip: Trip, expense: Expense) {
+    val accent = expenseAccent(expense.title)
     SectionCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(expense.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Paid by ${trip.memberName(expense.payerId)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    "For ${expense.participantIds.map { trip.memberName(it) }.joinToString()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(LiquidShape)
+                        .background(
+                            Brush.linearGradient(
+                                listOf(
+                                    Color.White.copy(alpha = 0.88f),
+                                    accent,
+                                    AccentViolet.copy(alpha = 0.86f),
+                                ),
+                            ),
+                        )
+                        .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.62f)), LiquidShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = expense.title.firstOrNull()?.uppercaseChar()?.toString() ?: "$",
+                        color = InkOnGlow,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.ExtraBold,
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(expense.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+                    Text(
+                        "Paid by ${trip.memberName(expense.payerId)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        "For ${expense.participantIds.map { trip.memberName(it) }.joinToString()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             Spacer(Modifier.width(12.dp))
-            Text(formatMoney(expense.amountCents), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .clip(LiquidShape)
+                    .background(accent.copy(alpha = 0.18f))
+                    .border(BorderStroke(1.dp, accent.copy(alpha = 0.48f)), LiquidShape)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    formatMoney(expense.amountCents),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                )
+            }
         }
     }
 }
@@ -960,9 +1244,32 @@ private fun SummaryTab(trip: Trip) {
 
 @Composable
 private fun SettlementRow(from: String, to: String, amount: Long) {
-    Column {
-        Text("$from pays $to", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        Text(formatMoney(amount), style = MaterialTheme.typography.bodyLarge)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(from, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+            Text("pays $to", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(Modifier.width(12.dp))
+        Box(
+            modifier = Modifier
+                .clip(LiquidShape)
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            AccentAmber.copy(alpha = 0.22f),
+                            AccentPink.copy(alpha = 0.18f),
+                        ),
+                    ),
+                )
+                .border(BorderStroke(1.dp, AccentAmber.copy(alpha = 0.48f)), LiquidShape)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+        ) {
+            Text(formatMoney(amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
+        }
     }
 }
 
@@ -1113,6 +1420,13 @@ private fun LiquidPrimaryButton(
     enabled: Boolean = true,
     danger: Boolean = false,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "primaryButtonScale",
+    )
     val enabledBrush = if (danger) {
         Brush.horizontalGradient(listOf(Color(0xFFFF6B7A), AccentPink, AccentAmber))
     } else {
@@ -1136,6 +1450,7 @@ private fun LiquidPrimaryButton(
         onClick = onClick,
         enabled = enabled,
         shape = LiquidShape,
+        interactionSource = interactionSource,
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, disabledElevation = 0.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
@@ -1145,6 +1460,7 @@ private fun LiquidPrimaryButton(
         ),
         modifier = modifier
             .height(52.dp)
+            .scale(scale)
             .shadow(10.dp, LiquidShape, clip = false)
             .clip(LiquidShape)
             .background(if (enabled) enabledBrush else disabledBrush)
@@ -1173,6 +1489,13 @@ private fun LiquidSecondaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.965f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "secondaryButtonScale",
+    )
     val enabledBrush = Brush.linearGradient(
         listOf(
             Color.White.copy(alpha = 0.22f),
@@ -1191,6 +1514,7 @@ private fun LiquidSecondaryButton(
         onClick = onClick,
         enabled = enabled,
         shape = LiquidShape,
+        interactionSource = interactionSource,
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, disabledElevation = 0.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
@@ -1201,6 +1525,7 @@ private fun LiquidSecondaryButton(
         contentPadding = PaddingValues(horizontal = 18.dp, vertical = 0.dp),
         modifier = modifier
             .height(48.dp)
+            .scale(scale)
             .clip(LiquidShape)
             .background(if (enabled) enabledBrush else disabledBrush)
             .border(
@@ -1230,15 +1555,15 @@ private fun SectionCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(14.dp, GlassShape, clip = false)
+            .shadow(22.dp, GlassShape, clip = false)
             .clip(GlassShape)
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.22f),
-                        Color.White.copy(alpha = 0.035f),
-                        GlassPanel,
-                        GlassInk,
+                        Color.White.copy(alpha = 0.28f),
+                        AccentSky.copy(alpha = 0.08f),
+                        Color.White.copy(alpha = 0.045f),
+                        Color(0xFF041225).copy(alpha = 0.24f),
                     ),
                 ),
             )
@@ -1247,10 +1572,11 @@ private fun SectionCard(
                     1.dp,
                     Brush.linearGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.70f),
-                            AccentMint.copy(alpha = 0.30f),
-                            AccentPink.copy(alpha = 0.16f),
-                            Color.White.copy(alpha = 0.30f),
+                            Color.White.copy(alpha = 0.82f),
+                            AccentMint.copy(alpha = 0.42f),
+                            AccentPink.copy(alpha = 0.28f),
+                            AccentAmber.copy(alpha = 0.22f),
+                            Color.White.copy(alpha = 0.36f),
                         ),
                     ),
                 ),
@@ -1269,65 +1595,161 @@ private fun SectionCard(
 
 @Composable
 private fun GlassBackground(content: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xFF2D6F8A),
-                        Color(0xFF1C536D),
-                        Color(0xFF0C2A42),
-                        Color(0xFF07131D),
-                    ),
-                ),
-            ),
-    ) {
-        Image(
-            painter = painterResource(id = R.drawable.trip_glass_bg),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            alpha = 0.96f,
-            modifier = Modifier.fillMaxSize(),
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color(0x04020409),
-                            Color(0x180A1A2A),
-                            Color(0x4D04070B),
-                        ),
-                    ),
-                ),
-        )
+    val transition = rememberInfiniteTransition(label = "ambientGlass")
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 16000),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "ambientDrift",
+    )
+    val sweep by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 11500),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "ambientSweep",
+    )
+
+    Box(modifier = Modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val hairline = 1.dp.toPx()
-            drawLine(
-                color = AccentMint.copy(alpha = 0.34f),
-                start = Offset(-size.width * 0.10f, size.height * 0.18f),
-                end = Offset(size.width * 0.92f, size.height * 0.04f),
-                strokeWidth = hairline,
-            )
-            drawLine(
-                color = AccentIndigo.copy(alpha = 0.30f),
-                start = Offset(size.width * 0.06f, size.height * 0.88f),
-                end = Offset(size.width * 1.04f, size.height * 0.66f),
-                strokeWidth = hairline,
-            )
-            drawLine(
-                color = AccentAmber.copy(alpha = 0.28f),
-                start = Offset(size.width * 0.72f, -size.height * 0.05f),
-                end = Offset(size.width * 0.98f, size.height * 0.46f),
-                strokeWidth = hairline,
+            val w = size.width
+            val h = size.height
+            drawRect(
+                brush = Brush.verticalGradient(
+                    listOf(
+                        DeepInk,
+                        Color(0xFF09295F),
+                        Color(0xFF063D55),
+                        Color(0xFF241046),
+                        Color(0xFF060714),
+                    ),
+                ),
             )
             drawRect(
-                color = Color.White.copy(alpha = 0.08f),
-                topLeft = Offset(size.width * 0.05f, size.height * 0.08f),
-                size = androidx.compose.ui.geometry.Size(size.width * 0.90f, size.height * 0.84f),
+                brush = Brush.linearGradient(
+                    listOf(
+                        Color.Transparent,
+                        AccentSky.copy(alpha = 0.46f),
+                        AccentMint.copy(alpha = 0.28f),
+                        Color.Transparent,
+                    ),
+                    start = Offset(w * (0.08f + drift * 0.12f), -h * 0.10f),
+                    end = Offset(w * (0.84f - drift * 0.12f), h * 0.86f),
+                ),
+                alpha = 0.92f,
+            )
+            drawRect(
+                brush = Brush.linearGradient(
+                    listOf(
+                        Color.Transparent,
+                        AccentPink.copy(alpha = 0.24f),
+                        AccentAmber.copy(alpha = 0.16f),
+                        Color.Transparent,
+                    ),
+                    start = Offset(w * (0.92f - sweep * 0.22f), -h * 0.04f),
+                    end = Offset(w * (0.22f + sweep * 0.16f), h * 1.05f),
+                ),
+                alpha = 0.84f,
+            )
+
+            val firstRibbon = Path().apply {
+                moveTo(-w * 0.20f, h * (0.20f + drift * 0.05f))
+                cubicTo(w * 0.18f, h * (0.10f + sweep * 0.06f), w * 0.52f, h * 0.26f, w * 1.18f, h * 0.08f)
+                lineTo(w * 1.22f, h * 0.28f)
+                cubicTo(w * 0.62f, h * (0.42f + drift * 0.05f), w * 0.28f, h * 0.32f, -w * 0.22f, h * 0.44f)
+                close()
+            }
+            drawPath(
+                path = firstRibbon,
+                brush = Brush.linearGradient(
+                    listOf(
+                        AccentSky.copy(alpha = 0.04f),
+                        Color.White.copy(alpha = 0.22f),
+                        AccentMint.copy(alpha = 0.22f),
+                        Color.Transparent,
+                    ),
+                ),
+            )
+
+            val secondRibbon = Path().apply {
+                moveTo(w * 0.12f, h * 1.08f)
+                cubicTo(w * 0.18f, h * 0.74f, w * 0.44f, h * (0.64f - drift * 0.04f), w * 0.76f, h * 0.46f)
+                cubicTo(w * 0.94f, h * 0.36f, w * 1.08f, h * 0.16f, w * 1.20f, -h * 0.06f)
+                lineTo(w * 0.86f, -h * 0.08f)
+                cubicTo(w * 0.72f, h * 0.20f, w * 0.45f, h * 0.46f, w * 0.22f, h * 0.68f)
+                cubicTo(w * 0.08f, h * 0.82f, -w * 0.02f, h * 0.98f, -w * 0.10f, h * 1.12f)
+                close()
+            }
+            drawPath(
+                path = secondRibbon,
+                brush = Brush.linearGradient(
+                    listOf(
+                        AccentViolet.copy(alpha = 0.26f),
+                        AccentPink.copy(alpha = 0.18f),
+                        Color.White.copy(alpha = 0.16f),
+                        Color.Transparent,
+                    ),
+                ),
+            )
+
+            val glassPane = Path().apply {
+                moveTo(w * (0.08f + drift * 0.04f), h * 0.05f)
+                lineTo(w * (0.64f + drift * 0.03f), h * -0.02f)
+                lineTo(w * (0.46f + sweep * 0.04f), h * 0.96f)
+                lineTo(w * (0.02f + drift * 0.02f), h * 1.04f)
+                close()
+            }
+            drawPath(
+                path = glassPane,
+                brush = Brush.linearGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.11f),
+                        Color.White.copy(alpha = 0.02f),
+                        Color(0xFF011523).copy(alpha = 0.18f),
+                    ),
+                ),
+            )
+
+            val hairline = 1.dp.toPx()
+            repeat(7) { index ->
+                val x = w * (index / 6f)
+                drawLine(
+                    color = Color.White.copy(alpha = 0.055f),
+                    start = Offset(x - w * 0.16f, -h * 0.08f),
+                    end = Offset(x + w * 0.10f, h * 1.08f),
+                    strokeWidth = hairline,
+                )
+            }
+            repeat(5) { index ->
+                val y = h * (0.18f + index * 0.17f)
+                drawLine(
+                    color = AccentSky.copy(alpha = 0.07f),
+                    start = Offset(-w * 0.08f, y + sweep * 18f),
+                    end = Offset(w * 1.08f, y - h * 0.10f + drift * 16f),
+                    strokeWidth = hairline,
+                )
+            }
+            drawRect(
+                color = Color.White.copy(alpha = 0.075f),
+                topLeft = Offset(w * 0.04f, h * 0.06f),
+                size = Size(w * 0.92f, h * 0.88f),
                 style = Stroke(width = hairline),
+            )
+            drawRect(
+                brush = Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        Color(0x44030712),
+                        Color(0xAA03050B),
+                    ),
+                    startY = h * 0.20f,
+                    endY = h,
+                ),
             )
         }
         content()
@@ -1384,6 +1806,18 @@ private fun parseAmountCents(input: String): Long? {
 
 private fun formatMoney(cents: Long): String =
     NumberFormat.getCurrencyInstance().format(cents / 100.0)
+
+private fun expenseAccent(title: String): Color {
+    val key = title.lowercase()
+    return when {
+        "grocer" in key || "suppl" in key -> AccentLime
+        "food" in key || "drink" in key -> AccentCoral
+        "gas" in key || "transport" in key -> AccentSky
+        "rent" in key || "lodg" in key -> AccentViolet
+        "activit" in key || "ticket" in key -> AccentAmber
+        else -> AccentMint
+    }
+}
 
 private fun newId(prefix: String): String =
     "${prefix}_${System.currentTimeMillis()}_${Random.nextInt(1000, 9999)}"
