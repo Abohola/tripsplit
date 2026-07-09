@@ -1,0 +1,17 @@
+.gradle/
+.idea/
+build/
+local.properties
+
+app/build/
+*.iml
+*.keystore
+*.jks
+
+captures/
+externalNativeBuild/
+
+web/server.log
+web/server.err
+
+dist/
