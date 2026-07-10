@@ -52,8 +52,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -71,6 +69,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -95,19 +94,22 @@ import kotlin.random.Random
 
 private val GlassShape = RoundedCornerShape(8.dp)
 private val LiquidShape = RoundedCornerShape(28.dp)
-private val GlassInk = Color(0xFF061A2A).copy(alpha = 0.16f)
-private val GlassBorder = Color.White.copy(alpha = 0.34f)
-private val GlassBorderBright = Color.White.copy(alpha = 0.62f)
-private val AccentMint = Color(0xFF48EAD9)
-private val AccentIndigo = Color(0xFF77B9FF)
-private val AccentAmber = Color(0xFFFFC06E)
-private val AccentPink = Color(0xFFD86DFF)
-private val AccentCoral = Color(0xFFFF6B9D)
-private val AccentLime = Color(0xFFB8F75A)
-private val AccentViolet = Color(0xFF8E7CFF)
-private val AccentSky = Color(0xFF34D6FF)
-private val DeepInk = Color(0xFF050510)
-private val InkOnGlow = Color(0xFF041213)
+private val PosterShape = RoundedCornerShape(26.dp)
+private val GlassBorder = Color(0xFFF6DCA7).copy(alpha = 0.34f)
+private val GlassBorderBright = Color(0xFFFFF3C8).copy(alpha = 0.72f)
+private val AccentMint = Color(0xFF3DC8BB)
+private val AccentIndigo = Color(0xFF167E96)
+private val AccentAmber = Color(0xFFF6B35F)
+private val AccentPink = Color(0xFFE77962)
+private val AccentCoral = Color(0xFFFF916F)
+private val AccentLime = Color(0xFFB7C969)
+private val AccentViolet = Color(0xFF4A7A88)
+private val AccentSky = Color(0xFF84D9D3)
+private val DeepInk = Color(0xFF07343C)
+private val PalmInk = Color(0xFF06282F)
+private val Sand = Color(0xFFFFD08B)
+private val Cream = Color(0xFFFFF3D0)
+private val InkOnGlow = Color(0xFF172D32)
 private val ExpenseTypePresets = listOf(
     "Groceries",
     "Food",
@@ -319,36 +321,11 @@ private fun EntryScreen(
                     .padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                SectionCard {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        LogoMark(size = 64)
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "TripSplit",
-                                style = MaterialTheme.typography.headlineLarge,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White,
-                            )
-                            Text(
-                                text = "Group trip wallet",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        MiniGlowPill("Invite", AccentSky)
-                        MiniGlowPill("Spend", AccentLime)
-                        MiniGlowPill("Settle", AccentPink)
-                    }
-                }
+                TravelPosterHero(
+                    title = "TripSplit",
+                    kicker = "TROPICAL GROUP WALLET",
+                    subtitle = "Invite friends. Track spend. Settle the trip.",
+                )
 
                 SectionCard {
                     Text("Create trip", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
@@ -453,49 +430,17 @@ private fun TripHomeScreen(
     GlassBackground {
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = {
-                TopAppBar(
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        scrolledContainerColor = Color.Transparent,
-                        titleContentColor = Color.White,
-                        actionIconContentColor = Color.White,
-                    ),
-                    title = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            LogoMark(size = 42)
-                            Column {
-                                Text(
-                                    trip.name,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text("Code ${trip.code}", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-                    },
-                    actions = {
-                        LiquidSecondaryButton(
-                            text = "Trips",
-                            onClick = onShowEntry,
-                            modifier = Modifier
-                                .widthIn(min = 88.dp)
-                                .padding(end = 10.dp),
-                        )
-                    },
-                )
-            },
         ) { padding ->
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
             ) {
+                TravelTripHero(
+                    trip = trip,
+                    onShowEntry = onShowEntry,
+                    modifier = Modifier.padding(16.dp),
+                )
                 TripStatusHeader(
                     trip = trip,
                     currentMember = currentMember,
@@ -591,8 +536,8 @@ private fun TripStatusHeader(
 
 @Composable
 private fun StatusPill(text: String, live: Boolean) {
-    val border = if (live) AccentMint.copy(alpha = 0.58f) else GlassBorder
-    val fill = if (live) AccentMint.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.08f)
+    val border = if (live) Sand.copy(alpha = 0.72f) else GlassBorder
+    val fill = if (live) Sand.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.08f)
 
     Box(
         modifier = Modifier
@@ -604,9 +549,299 @@ private fun StatusPill(text: String, live: Boolean) {
     ) {
         Text(
             text = text,
-            color = Color.White,
+            color = if (live) Cream else Color.White,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun TravelPosterHero(
+    title: String,
+    kicker: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(360.dp)
+            .shadow(24.dp, PosterShape, clip = false)
+            .clip(PosterShape)
+            .background(AccentSky)
+            .border(BorderStroke(1.dp, Cream.copy(alpha = 0.32f)), PosterShape),
+    ) {
+        TravelSceneCanvas(showBus = true, modifier = Modifier.fillMaxSize())
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            DeepInk.copy(alpha = 0.86f),
+                            DeepInk.copy(alpha = 0.98f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column {
+                Text(
+                    text = kicker,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Sand,
+                )
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = Color.White,
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Cream.copy(alpha = 0.86f),
+                )
+                Spacer(Modifier.height(14.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    MiniGlowPill("Invite", Sand)
+                    MiniGlowPill("Spend", AccentCoral)
+                    MiniGlowPill("Settle", AccentSky)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TravelTripHero(
+    trip: Trip,
+    onShowEntry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val totalCents = remember(trip.expenses) { trip.expenses.sumOf { it.amountCents } }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(300.dp)
+            .shadow(22.dp, PosterShape, clip = false)
+            .clip(PosterShape)
+            .background(AccentSky)
+            .border(BorderStroke(1.dp, Cream.copy(alpha = 0.34f)), PosterShape),
+    ) {
+        TravelSceneCanvas(showBus = false, modifier = Modifier.fillMaxSize())
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            LogoMark(size = 44)
+            LiquidSecondaryButton(
+                text = "Trips",
+                onClick = onShowEntry,
+                modifier = Modifier.widthIn(min = 92.dp),
+            )
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "TRIP BOARD",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Cream.copy(alpha = 0.82f),
+            )
+            Text(
+                text = trip.name,
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "CODE ${trip.code}",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = Sand,
+            )
+        }
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(
+                    Brush.verticalGradient(
+                        listOf(
+                            Color.Transparent,
+                            DeepInk.copy(alpha = 0.80f),
+                            DeepInk.copy(alpha = 0.98f),
+                        ),
+                    ),
+                )
+                .padding(18.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column {
+                Text("TOTAL", style = MaterialTheme.typography.labelSmall, color = Cream.copy(alpha = 0.72f))
+                Text(formatMoney(totalCents), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Color.White)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("FRIENDS", style = MaterialTheme.typography.labelSmall, color = Cream.copy(alpha = 0.72f))
+                Text("${trip.members.size}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = Sand)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TravelSceneCanvas(showBus: Boolean, modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "travelPosterScene")
+    val drift by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(animation = tween(9000), repeatMode = RepeatMode.Reverse),
+        label = "sceneDrift",
+    )
+
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(
+                    Color(0xFF78DAD3),
+                    Color(0xFF8BD9D0),
+                    Color(0xFFF8C47A),
+                    Color(0xFFE57F5D),
+                    DeepInk,
+                ),
+                startY = 0f,
+                endY = h,
+            ),
+        )
+        drawCircle(
+            color = Color(0xFFFFF0B8).copy(alpha = 0.92f),
+            radius = w * 0.12f,
+            center = Offset(w * (0.20f + drift * 0.03f), h * 0.42f),
+        )
+        drawCircle(
+            color = Color.White.copy(alpha = 0.30f),
+            radius = w * 0.20f,
+            center = Offset(w * (0.20f + drift * 0.03f), h * 0.42f),
+        )
+
+        val farMountain = Path().apply {
+            moveTo(w * 0.18f, h * 0.68f)
+            lineTo(w * 0.52f, h * 0.28f)
+            lineTo(w * 0.88f, h * 0.68f)
+            close()
+        }
+        drawPath(
+            path = farMountain,
+            brush = Brush.verticalGradient(
+                listOf(
+                    Cream.copy(alpha = 0.82f),
+                    Color(0xFFD18863).copy(alpha = 0.86f),
+                    DeepInk.copy(alpha = 0.58f),
+                ),
+                startY = h * 0.26f,
+                endY = h * 0.70f,
+            ),
+        )
+        val nearRockLeft = Path().apply {
+            moveTo(w * 0.08f, h * 0.76f)
+            lineTo(w * 0.26f, h * 0.48f)
+            lineTo(w * 0.40f, h * 0.78f)
+            close()
+        }
+        val nearRockRight = Path().apply {
+            moveTo(w * 0.64f, h * 0.78f)
+            lineTo(w * 0.82f, h * 0.44f)
+            lineTo(w * 1.04f, h * 0.78f)
+            close()
+        }
+        drawPath(nearRockLeft, color = Color(0xFF8F463C).copy(alpha = 0.84f))
+        drawPath(nearRockRight, color = Color(0xFF7B3940).copy(alpha = 0.86f))
+
+        repeat(4) { index ->
+            val y = h * (0.67f + index * 0.04f)
+            drawLine(
+                color = Color.White.copy(alpha = 0.30f - index * 0.04f),
+                start = Offset(w * 0.02f, y),
+                end = Offset(w * 0.98f, y + drift * 4f),
+                strokeWidth = 2.dp.toPx(),
+            )
+        }
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(
+                    AccentIndigo.copy(alpha = 0.42f),
+                    DeepInk.copy(alpha = 0.95f),
+                ),
+                startY = h * 0.66f,
+                endY = h,
+            ),
+            topLeft = Offset(0f, h * 0.66f),
+            size = Size(w, h * 0.34f),
+        )
+
+        drawPalm(w * 0.14f, h * 0.62f, h * 0.40f)
+        drawPalm(w * 0.92f, h * 0.56f, h * 0.32f)
+        drawPlane(w * (0.30f + drift * 0.04f), h * 0.32f, 0.70f)
+        drawPlane(w * (0.70f - drift * 0.04f), h * 0.36f, 0.54f)
+
+        if (showBus) {
+            val road = Path().apply {
+                moveTo(0f, h)
+                lineTo(w * 0.40f, h * 0.68f)
+                lineTo(w * 0.62f, h * 0.68f)
+                lineTo(w * 0.90f, h)
+                close()
+            }
+            drawPath(road, color = Color(0xFF263E42).copy(alpha = 0.82f))
+            drawLine(
+                color = Sand.copy(alpha = 0.82f),
+                start = Offset(w * 0.50f, h * 0.72f),
+                end = Offset(w * 0.54f, h * 0.96f),
+                strokeWidth = 2.dp.toPx(),
+            )
+            drawRoundRect(
+                color = Color(0xFFE8AA66),
+                topLeft = Offset(w * 0.22f, h * 0.68f),
+                size = Size(w * 0.42f, h * 0.16f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(18.dp.toPx(), 18.dp.toPx()),
+            )
+            drawRoundRect(
+                color = DeepInk.copy(alpha = 0.84f),
+                topLeft = Offset(w * 0.30f, h * 0.71f),
+                size = Size(w * 0.25f, h * 0.045f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx()),
+            )
+            drawCircle(color = PalmInk, radius = 8.dp.toPx(), center = Offset(w * 0.30f, h * 0.84f))
+            drawCircle(color = PalmInk, radius = 8.dp.toPx(), center = Offset(w * 0.58f, h * 0.84f))
+        }
+
+        drawRect(
+            brush = Brush.verticalGradient(
+                listOf(Color.Transparent, DeepInk.copy(alpha = 0.52f)),
+                startY = h * 0.34f,
+                endY = h,
+            ),
         )
     }
 }
@@ -619,19 +854,19 @@ private fun MiniGlowPill(text: String, accent: Color) {
             .background(
                 Brush.horizontalGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.20f),
-                        accent.copy(alpha = 0.28f),
-                        Color.White.copy(alpha = 0.07f),
+                        Cream.copy(alpha = 0.18f),
+                        accent.copy(alpha = 0.24f),
+                        DeepInk.copy(alpha = 0.20f),
                     ),
                 ),
             )
-            .border(BorderStroke(1.dp, accent.copy(alpha = 0.58f)), LiquidShape)
+            .border(BorderStroke(1.dp, accent.copy(alpha = 0.52f)), LiquidShape)
             .padding(horizontal = 12.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = text,
-            color = Color.White,
+            color = Cream,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
         )
@@ -646,13 +881,13 @@ private fun StatTile(label: String, value: String, accent: Color) {
             .background(
                 Brush.linearGradient(
                     listOf(
-                        accent.copy(alpha = 0.22f),
-                        Color.White.copy(alpha = 0.10f),
-                        Color(0xFF061222).copy(alpha = 0.18f),
+                        accent.copy(alpha = 0.18f),
+                        DeepInk.copy(alpha = 0.82f),
+                        Color(0xFF03272F),
                     ),
                 ),
             )
-            .border(BorderStroke(1.dp, accent.copy(alpha = 0.44f)), GlassShape)
+            .border(BorderStroke(1.dp, Sand.copy(alpha = 0.26f)), GlassShape)
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Column {
@@ -660,7 +895,7 @@ private fun StatTile(label: String, value: String, accent: Color) {
                 text = value,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.ExtraBold,
-                color = Color.White,
+                color = Sand,
             )
             Text(
                 text = label,
@@ -685,9 +920,9 @@ private fun LiquidTabBar(
             .background(
                 Brush.linearGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.22f),
-                        AccentSky.copy(alpha = 0.10f),
-                        Color(0xFF041222).copy(alpha = 0.30f),
+                        Color(0xFF0A4650),
+                        Color(0xFF062F38),
+                        Color(0xFF04252D),
                     ),
                 ),
             )
@@ -696,9 +931,9 @@ private fun LiquidTabBar(
                     1.dp,
                     Brush.horizontalGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.68f),
-                            AccentMint.copy(alpha = 0.36f),
-                            AccentPink.copy(alpha = 0.24f),
+                            Cream.copy(alpha = 0.30f),
+                            Sand.copy(alpha = 0.28f),
+                            AccentSky.copy(alpha = 0.16f),
                         ),
                     ),
                 ),
@@ -710,9 +945,9 @@ private fun LiquidTabBar(
         tabs.forEachIndexed { index, title ->
             val selected = selectedTab == index
             val accent = when (index) {
-                0 -> AccentMint
+                0 -> Sand
                 1 -> AccentSky
-                else -> AccentPink
+                else -> AccentCoral
             }
             val interactionSource = remember { MutableInteractionSource() }
             val pressed by interactionSource.collectIsPressedAsState()
@@ -738,15 +973,15 @@ private fun LiquidTabBar(
                             Brush.horizontalGradient(
                                 listOf(
                                     Color.White.copy(alpha = 0.88f),
-                                    accent,
-                                    AccentViolet.copy(alpha = 0.88f),
+                                    Sand,
+                                    AccentAmber,
                                 ),
                             )
                         } else {
                             Brush.horizontalGradient(
                                 listOf(
-                                    Color.White.copy(alpha = 0.08f * (1f - selectedAlpha)),
-                                    Color.Transparent,
+                                    Cream.copy(alpha = 0.08f * (1f - selectedAlpha)),
+                                    DeepInk.copy(alpha = 0.10f),
                                 ),
                             )
                         },
@@ -754,7 +989,7 @@ private fun LiquidTabBar(
                     .border(
                         BorderStroke(
                             1.dp,
-                            if (selected) Color.White.copy(alpha = 0.74f) else Color.White.copy(alpha = 0.12f),
+                            if (selected) Cream.copy(alpha = 0.78f) else Cream.copy(alpha = 0.14f),
                         ),
                         LiquidShape,
                     )
@@ -766,7 +1001,7 @@ private fun LiquidTabBar(
             ) {
                 Text(
                     text = title,
-                    color = if (selected) InkOnGlow else Color.White,
+                    color = if (selected) InkOnGlow else Cream.copy(alpha = 0.88f),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 1,
@@ -1056,14 +1291,13 @@ private fun LiquidChoiceChip(
         label = "chipScale",
     )
     val brush = if (selected) {
-        Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.88f), accent, AccentViolet.copy(alpha = 0.88f)))
+        Brush.horizontalGradient(listOf(Cream.copy(alpha = 0.96f), Sand, accent.copy(alpha = 0.86f)))
     } else {
         Brush.linearGradient(
             listOf(
-                Color.White.copy(alpha = 0.22f),
-                accent.copy(alpha = 0.10f),
-                Color.White.copy(alpha = 0.04f),
-                GlassInk,
+                Color(0xFF0B4650),
+                accent.copy(alpha = 0.14f),
+                Color(0xFF052C35),
             ),
         )
     }
@@ -1093,8 +1327,8 @@ private fun LiquidChoiceChip(
                     Brush.horizontalGradient(
                         listOf(
                             Color.White.copy(alpha = if (selected) 0.82f else 0.46f),
-                            accent.copy(alpha = if (selected) 0.82f else 0.34f),
-                            AccentPink.copy(alpha = if (selected) 0.42f else 0.14f),
+                            Sand.copy(alpha = if (selected) 0.82f else 0.28f),
+                            accent.copy(alpha = if (selected) 0.62f else 0.28f),
                         ),
                     ),
                 ),
@@ -1109,7 +1343,7 @@ private fun LiquidChoiceChip(
                 modifier = Modifier
                     .size(8.dp)
                     .clip(LiquidShape)
-                    .background(if (selected) InkOnGlow.copy(alpha = 0.48f) else accent),
+                    .background(if (selected) InkOnGlow.copy(alpha = 0.54f) else Sand),
             )
             Text(text = text, fontWeight = FontWeight.Bold)
         }
@@ -1137,13 +1371,13 @@ private fun ExpenseCard(trip: Trip, expense: Expense) {
                         .background(
                             Brush.linearGradient(
                                 listOf(
-                                    Color.White.copy(alpha = 0.88f),
-                                    accent,
-                                    AccentViolet.copy(alpha = 0.86f),
+                                    Cream.copy(alpha = 0.96f),
+                                    Sand,
+                                    accent.copy(alpha = 0.80f),
                                 ),
                             ),
                         )
-                        .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.62f)), LiquidShape),
+                        .border(BorderStroke(1.dp, Cream.copy(alpha = 0.62f)), LiquidShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -1171,15 +1405,15 @@ private fun ExpenseCard(trip: Trip, expense: Expense) {
             Box(
                 modifier = Modifier
                     .clip(LiquidShape)
-                    .background(accent.copy(alpha = 0.18f))
-                    .border(BorderStroke(1.dp, accent.copy(alpha = 0.48f)), LiquidShape)
+                    .background(Sand.copy(alpha = 0.18f))
+                    .border(BorderStroke(1.dp, Sand.copy(alpha = 0.48f)), LiquidShape)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Text(
                     formatMoney(expense.amountCents),
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
+                    color = Sand,
                 )
             }
         }
@@ -1261,11 +1495,11 @@ private fun SettlementRow(from: String, to: String, amount: Long) {
                     Brush.horizontalGradient(
                         listOf(
                             AccentAmber.copy(alpha = 0.22f),
-                            AccentPink.copy(alpha = 0.18f),
+                            Sand.copy(alpha = 0.20f),
                         ),
                     ),
                 )
-                .border(BorderStroke(1.dp, AccentAmber.copy(alpha = 0.48f)), LiquidShape)
+                .border(BorderStroke(1.dp, Sand.copy(alpha = 0.48f)), LiquidShape)
                 .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             Text(formatMoney(amount), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold)
@@ -1428,14 +1662,13 @@ private fun LiquidPrimaryButton(
         label = "primaryButtonScale",
     )
     val enabledBrush = if (danger) {
-        Brush.horizontalGradient(listOf(Color(0xFFFF6B7A), AccentPink, AccentAmber))
+        Brush.horizontalGradient(listOf(Color(0xFFB94F47), AccentCoral, Sand))
     } else {
         Brush.horizontalGradient(
             listOf(
-                Color.White.copy(alpha = 0.90f),
-                AccentMint,
-                AccentIndigo,
-                AccentPink,
+                Cream,
+                Sand,
+                AccentAmber,
             ),
         )
     }
@@ -1469,9 +1702,9 @@ private fun LiquidPrimaryButton(
                     1.dp,
                     Brush.horizontalGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.88f),
-                            AccentMint.copy(alpha = if (danger) 0.20f else 0.84f),
-                            AccentPink.copy(alpha = 0.56f),
+                            Cream.copy(alpha = 0.88f),
+                            Sand.copy(alpha = if (danger) 0.30f else 0.78f),
+                            AccentAmber.copy(alpha = 0.56f),
                         ),
                     ),
                 ),
@@ -1498,9 +1731,9 @@ private fun LiquidSecondaryButton(
     )
     val enabledBrush = Brush.linearGradient(
         listOf(
-            Color.White.copy(alpha = 0.22f),
-            Color.White.copy(alpha = 0.045f),
-            Color(0xFF061A2A).copy(alpha = 0.13f),
+            Color(0xFF0A4650),
+            Color(0xFF06333C),
+            Color(0xFF041F27),
         ),
     )
     val disabledBrush = Brush.linearGradient(
@@ -1518,7 +1751,7 @@ private fun LiquidSecondaryButton(
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp, disabledElevation = 0.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = Color.Transparent,
-            contentColor = Color.White,
+            contentColor = Cream,
             disabledContainerColor = Color.Transparent,
             disabledContentColor = Color.White.copy(alpha = 0.54f),
         ),
@@ -1534,9 +1767,9 @@ private fun LiquidSecondaryButton(
                     Brush.horizontalGradient(
                         listOf(
                             Color.White.copy(alpha = 0.72f),
-                            AccentIndigo.copy(alpha = 0.36f),
-                            AccentPink.copy(alpha = 0.18f),
-                            Color.White.copy(alpha = 0.30f),
+                            Sand.copy(alpha = 0.36f),
+                            AccentSky.copy(alpha = 0.20f),
+                            Cream.copy(alpha = 0.22f),
                         ),
                     ),
                 ),
@@ -1555,15 +1788,14 @@ private fun SectionCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(22.dp, GlassShape, clip = false)
+            .shadow(18.dp, GlassShape, clip = false)
             .clip(GlassShape)
             .background(
-                Brush.linearGradient(
+                Brush.verticalGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.28f),
-                        AccentSky.copy(alpha = 0.08f),
-                        Color.White.copy(alpha = 0.045f),
-                        Color(0xFF041225).copy(alpha = 0.24f),
+                        Color(0xF2073C45),
+                        Color(0xF2053039),
+                        Color(0xF203242C),
                     ),
                 ),
             )
@@ -1572,11 +1804,10 @@ private fun SectionCard(
                     1.dp,
                     Brush.linearGradient(
                         listOf(
-                            Color.White.copy(alpha = 0.82f),
-                            AccentMint.copy(alpha = 0.42f),
-                            AccentPink.copy(alpha = 0.28f),
-                            AccentAmber.copy(alpha = 0.22f),
-                            Color.White.copy(alpha = 0.36f),
+                            Cream.copy(alpha = 0.42f),
+                            Sand.copy(alpha = 0.30f),
+                            AccentSky.copy(alpha = 0.20f),
+                            Cream.copy(alpha = 0.16f),
                         ),
                     ),
                 ),
@@ -1595,12 +1826,12 @@ private fun SectionCard(
 
 @Composable
 private fun GlassBackground(content: @Composable () -> Unit) {
-    val transition = rememberInfiniteTransition(label = "ambientGlass")
+    val transition = rememberInfiniteTransition(label = "travelAmbient")
     val drift by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 16000),
+            animation = tween(durationMillis = 14000),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "ambientDrift",
@@ -1609,7 +1840,7 @@ private fun GlassBackground(content: @Composable () -> Unit) {
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 11500),
+            animation = tween(durationMillis = 12000),
             repeatMode = RepeatMode.Reverse,
         ),
         label = "ambientSweep",
@@ -1622,75 +1853,72 @@ private fun GlassBackground(content: @Composable () -> Unit) {
             drawRect(
                 brush = Brush.verticalGradient(
                     listOf(
-                        DeepInk,
-                        Color(0xFF09295F),
-                        Color(0xFF063D55),
-                        Color(0xFF241046),
-                        Color(0xFF060714),
+                        Color(0xFFB6DED5),
+                        Color(0xFF93CEC6),
+                        Color(0xFFEBC790),
+                        Color(0xFFF1B773),
                     ),
+                ),
+            )
+            drawRect(
+                brush = Brush.radialGradient(
+                    listOf(
+                        Color.White.copy(alpha = 0.36f),
+                        Sand.copy(alpha = 0.28f),
+                        Color.Transparent,
+                    ),
+                    center = Offset(w * (0.18f + drift * 0.05f), h * 0.74f),
+                    radius = w * 0.78f,
                 ),
             )
             drawRect(
                 brush = Brush.linearGradient(
                     listOf(
                         Color.Transparent,
-                        AccentSky.copy(alpha = 0.46f),
-                        AccentMint.copy(alpha = 0.28f),
+                        Cream.copy(alpha = 0.20f),
+                        AccentSky.copy(alpha = 0.22f),
                         Color.Transparent,
                     ),
-                    start = Offset(w * (0.08f + drift * 0.12f), -h * 0.10f),
-                    end = Offset(w * (0.84f - drift * 0.12f), h * 0.86f),
+                    start = Offset(w * (0.80f - sweep * 0.16f), -h * 0.04f),
+                    end = Offset(w * (0.16f + sweep * 0.16f), h * 0.86f),
                 ),
-                alpha = 0.92f,
-            )
-            drawRect(
-                brush = Brush.linearGradient(
-                    listOf(
-                        Color.Transparent,
-                        AccentPink.copy(alpha = 0.24f),
-                        AccentAmber.copy(alpha = 0.16f),
-                        Color.Transparent,
-                    ),
-                    start = Offset(w * (0.92f - sweep * 0.22f), -h * 0.04f),
-                    end = Offset(w * (0.22f + sweep * 0.16f), h * 1.05f),
-                ),
-                alpha = 0.84f,
+                alpha = 0.78f,
             )
 
             val firstRibbon = Path().apply {
-                moveTo(-w * 0.20f, h * (0.20f + drift * 0.05f))
-                cubicTo(w * 0.18f, h * (0.10f + sweep * 0.06f), w * 0.52f, h * 0.26f, w * 1.18f, h * 0.08f)
-                lineTo(w * 1.22f, h * 0.28f)
-                cubicTo(w * 0.62f, h * (0.42f + drift * 0.05f), w * 0.28f, h * 0.32f, -w * 0.22f, h * 0.44f)
+                moveTo(-w * 0.10f, h * (0.20f + drift * 0.03f))
+                cubicTo(w * 0.20f, h * 0.10f, w * 0.52f, h * 0.18f, w * 1.10f, h * 0.04f)
+                lineTo(w * 1.18f, h * 0.22f)
+                cubicTo(w * 0.62f, h * (0.34f + drift * 0.03f), w * 0.24f, h * 0.28f, -w * 0.18f, h * 0.42f)
                 close()
             }
             drawPath(
                 path = firstRibbon,
                 brush = Brush.linearGradient(
                     listOf(
-                        AccentSky.copy(alpha = 0.04f),
-                        Color.White.copy(alpha = 0.22f),
-                        AccentMint.copy(alpha = 0.22f),
+                        Cream.copy(alpha = 0.04f),
+                        Color.White.copy(alpha = 0.20f),
+                        AccentSky.copy(alpha = 0.12f),
                         Color.Transparent,
                     ),
                 ),
             )
 
             val secondRibbon = Path().apply {
-                moveTo(w * 0.12f, h * 1.08f)
-                cubicTo(w * 0.18f, h * 0.74f, w * 0.44f, h * (0.64f - drift * 0.04f), w * 0.76f, h * 0.46f)
-                cubicTo(w * 0.94f, h * 0.36f, w * 1.08f, h * 0.16f, w * 1.20f, -h * 0.06f)
-                lineTo(w * 0.86f, -h * 0.08f)
-                cubicTo(w * 0.72f, h * 0.20f, w * 0.45f, h * 0.46f, w * 0.22f, h * 0.68f)
-                cubicTo(w * 0.08f, h * 0.82f, -w * 0.02f, h * 0.98f, -w * 0.10f, h * 1.12f)
+                moveTo(w * 0.16f, h * 1.08f)
+                cubicTo(w * 0.20f, h * 0.80f, w * 0.44f, h * (0.66f - drift * 0.04f), w * 0.78f, h * 0.48f)
+                cubicTo(w * 0.94f, h * 0.40f, w * 1.04f, h * 0.20f, w * 1.12f, -h * 0.02f)
+                lineTo(w * 0.82f, -h * 0.04f)
+                cubicTo(w * 0.70f, h * 0.22f, w * 0.44f, h * 0.48f, w * 0.24f, h * 0.70f)
+                cubicTo(w * 0.10f, h * 0.86f, 0f, h, -w * 0.10f, h * 1.12f)
                 close()
             }
             drawPath(
                 path = secondRibbon,
                 brush = Brush.linearGradient(
                     listOf(
-                        AccentViolet.copy(alpha = 0.26f),
-                        AccentPink.copy(alpha = 0.18f),
+                        AccentAmber.copy(alpha = 0.18f),
+                        AccentCoral.copy(alpha = 0.16f),
                         Color.White.copy(alpha = 0.16f),
                         Color.Transparent,
                     ),
@@ -1708,9 +1936,9 @@ private fun GlassBackground(content: @Composable () -> Unit) {
                 path = glassPane,
                 brush = Brush.linearGradient(
                     listOf(
-                        Color.White.copy(alpha = 0.11f),
+                        Color.White.copy(alpha = 0.16f),
                         Color.White.copy(alpha = 0.02f),
-                        Color(0xFF011523).copy(alpha = 0.18f),
+                        DeepInk.copy(alpha = 0.08f),
                     ),
                 ),
             )
@@ -1728,14 +1956,14 @@ private fun GlassBackground(content: @Composable () -> Unit) {
             repeat(5) { index ->
                 val y = h * (0.18f + index * 0.17f)
                 drawLine(
-                    color = AccentSky.copy(alpha = 0.07f),
+                    color = DeepInk.copy(alpha = 0.045f),
                     start = Offset(-w * 0.08f, y + sweep * 18f),
                     end = Offset(w * 1.08f, y - h * 0.10f + drift * 16f),
                     strokeWidth = hairline,
                 )
             }
             drawRect(
-                color = Color.White.copy(alpha = 0.075f),
+                color = Cream.copy(alpha = 0.13f),
                 topLeft = Offset(w * 0.04f, h * 0.06f),
                 size = Size(w * 0.92f, h * 0.88f),
                 style = Stroke(width = hairline),
@@ -1744,8 +1972,8 @@ private fun GlassBackground(content: @Composable () -> Unit) {
                 brush = Brush.verticalGradient(
                     listOf(
                         Color.Transparent,
-                        Color(0x44030712),
-                        Color(0xAA03050B),
+                        DeepInk.copy(alpha = 0.10f),
+                        DeepInk.copy(alpha = 0.20f),
                     ),
                     startY = h * 0.20f,
                     endY = h,
@@ -1758,18 +1986,18 @@ private fun GlassBackground(content: @Composable () -> Unit) {
 
 @Composable
 private fun glassTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.White,
-    unfocusedTextColor = Color.White,
+    focusedTextColor = Cream,
+    unfocusedTextColor = Cream,
     disabledTextColor = Color.White.copy(alpha = 0.56f),
-    focusedContainerColor = Color(0xFF061A2A).copy(alpha = 0.24f),
-    unfocusedContainerColor = Color(0xFF061A2A).copy(alpha = 0.18f),
-    disabledContainerColor = Color.White.copy(alpha = 0.06f),
-    focusedBorderColor = AccentMint.copy(alpha = 0.96f),
-    unfocusedBorderColor = GlassBorderBright.copy(alpha = 0.82f),
+    focusedContainerColor = Color(0xFF073942).copy(alpha = 0.94f),
+    unfocusedContainerColor = Color(0xFF052F38).copy(alpha = 0.90f),
+    disabledContainerColor = Color(0xFF052F38).copy(alpha = 0.58f),
+    focusedBorderColor = Sand.copy(alpha = 0.96f),
+    unfocusedBorderColor = Cream.copy(alpha = 0.34f),
     disabledBorderColor = GlassBorder,
-    cursorColor = AccentMint,
-    focusedLabelColor = AccentMint,
-    unfocusedLabelColor = Color(0xFFEEF8FF),
+    cursorColor = Sand,
+    focusedLabelColor = Sand,
+    unfocusedLabelColor = Cream.copy(alpha = 0.78f),
     disabledLabelColor = Color.White.copy(alpha = 0.56f),
 )
 
@@ -1777,7 +2005,7 @@ private fun glassTextFieldColors() = OutlinedTextFieldDefaults.colors(
 private fun GlassDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(vertical = 8.dp),
-        color = Color.White.copy(alpha = 0.16f),
+        color = Cream.copy(alpha = 0.14f),
     )
 }
 
@@ -1786,7 +2014,7 @@ private fun EmptyState(message: String) {
     Text(
         text = message,
         style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = Cream.copy(alpha = 0.76f),
     )
 }
 
@@ -1817,6 +2045,62 @@ private fun expenseAccent(title: String): Color {
         "activit" in key || "ticket" in key -> AccentAmber
         else -> AccentMint
     }
+}
+
+private fun DrawScope.drawPalm(baseX: Float, baseY: Float, palmHeight: Float) {
+    val top = Offset(baseX + palmHeight * 0.08f, baseY - palmHeight)
+    val trunk = Path().apply {
+        moveTo(baseX - palmHeight * 0.025f, baseY)
+        cubicTo(baseX + palmHeight * 0.04f, baseY - palmHeight * 0.34f, baseX + palmHeight * 0.02f, baseY - palmHeight * 0.68f, top.x, top.y)
+        lineTo(top.x + palmHeight * 0.035f, top.y)
+        cubicTo(baseX + palmHeight * 0.08f, baseY - palmHeight * 0.66f, baseX + palmHeight * 0.07f, baseY - palmHeight * 0.30f, baseX + palmHeight * 0.025f, baseY)
+        close()
+    }
+    drawPath(trunk, color = PalmInk.copy(alpha = 0.88f))
+
+    val leaves = listOf(
+        Offset(-0.40f, -0.10f),
+        Offset(-0.30f, -0.28f),
+        Offset(-0.08f, -0.36f),
+        Offset(0.20f, -0.34f),
+        Offset(0.38f, -0.18f),
+        Offset(0.34f, 0.02f),
+        Offset(-0.28f, 0.04f),
+    )
+    leaves.forEach { leaf ->
+        val end = Offset(top.x + palmHeight * leaf.x, top.y + palmHeight * leaf.y)
+        drawLine(
+            color = PalmInk.copy(alpha = 0.88f),
+            start = top,
+            end = end,
+            strokeWidth = 3.dp.toPx(),
+        )
+    }
+}
+
+private fun DrawScope.drawPlane(centerX: Float, centerY: Float, scale: Float) {
+    val unit = 22.dp.toPx() * scale
+    val plane = Path().apply {
+        moveTo(centerX - unit * 1.25f, centerY)
+        lineTo(centerX + unit * 1.18f, centerY - unit * 0.16f)
+        lineTo(centerX + unit * 0.84f, centerY + unit * 0.08f)
+        lineTo(centerX - unit * 1.25f, centerY)
+        close()
+    }
+    val wing = Path().apply {
+        moveTo(centerX - unit * 0.22f, centerY)
+        lineTo(centerX + unit * 0.18f, centerY + unit * 0.50f)
+        lineTo(centerX + unit * 0.34f, centerY + unit * 0.04f)
+        close()
+    }
+    drawPath(plane, color = Cream.copy(alpha = 0.86f))
+    drawPath(wing, color = DeepInk.copy(alpha = 0.32f))
+    drawLine(
+        color = Cream.copy(alpha = 0.50f),
+        start = Offset(centerX - unit * 1.45f, centerY + unit * 0.16f),
+        end = Offset(centerX - unit * 2.20f, centerY + unit * 0.40f),
+        strokeWidth = 1.dp.toPx(),
+    )
 }
 
 private fun newId(prefix: String): String =
