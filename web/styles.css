@@ -366,9 +366,23 @@ label {
 .tabs button {
   flex: 1;
   min-width: 0;
+  min-height: 48px;
+  padding-inline: 18px;
   color: rgba(255, 243, 208, 0.82);
   background: transparent;
   box-shadow: none;
+}
+
+.tabs button:nth-child(1) {
+  flex: 1.22;
+}
+
+.tabs button:nth-child(2) {
+  flex: 1.18;
+}
+
+.tabs button:nth-child(3) {
+  flex: 0.92;
 }
 
 .tabs button.active {

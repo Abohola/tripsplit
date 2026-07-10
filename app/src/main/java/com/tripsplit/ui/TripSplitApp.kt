@@ -944,6 +944,15 @@ private fun LiquidTabBar(
     ) {
         tabs.forEachIndexed { index, title ->
             val selected = selectedTab == index
+            val tabWeight = when (title) {
+                "Expenses" -> 1.22f
+                "Summary" -> 1.18f
+                else -> 0.92f
+            }
+            val tabMinWidth = when (title) {
+                "Expenses", "Summary" -> 104.dp
+                else -> 78.dp
+            }
             val accent = when (index) {
                 0 -> Sand
                 1 -> AccentSky
@@ -964,8 +973,9 @@ private fun LiquidTabBar(
 
             Box(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(46.dp)
+                    .weight(tabWeight)
+                    .widthIn(min = tabMinWidth)
+                    .height(50.dp)
                     .scale(scale)
                     .clip(LiquidShape)
                     .background(
@@ -1001,6 +1011,7 @@ private fun LiquidTabBar(
             ) {
                 Text(
                     text = title,
+                    modifier = Modifier.padding(horizontal = 12.dp),
                     color = if (selected) InkOnGlow else Cream.copy(alpha = 0.88f),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.ExtraBold,

@@ -1,5 +1,5 @@
 const STORAGE_KEY = "tripsplit.web.v1";
-const WEB_VERSION = "0.1.5";
+const WEB_VERSION = "0.1.6";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const EXPENSE_TYPE_PRESETS = [
   "Groceries",
