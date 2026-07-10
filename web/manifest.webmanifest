@@ -3,8 +3,8 @@
   "short_name": "TripSplit",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#07131d",
-  "theme_color": "#07131d",
+  "background_color": "#b6ded5",
+  "theme_color": "#b6ded5",
   "description": "Split trip expenses across selected friends.",
   "icons": [
     {

@@ -1,4 +1,5 @@
 const STORAGE_KEY = "tripsplit.web.v1";
+const WEB_VERSION = "0.1.5";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const EXPENSE_TYPE_PRESETS = [
   "Groceries",
@@ -100,7 +101,7 @@ function entryTemplate() {
         <img class="brand-logo" src="assets/app-logo.png" alt="" />
         <div>
           <h1>TripSplit</h1>
-          <span>Liquid glass trip expenses</span>
+          <span>Tropical group wallet</span>
         </div>
       </div>
     </section>
@@ -508,7 +509,7 @@ async function copyTripCode() {
 async function copyShareLink() {
   const trip = currentTrip();
   if (!trip) return;
-  const base = `${location.origin}${location.pathname}`;
+  const base = `${location.origin}${location.pathname}?v=${WEB_VERSION}`;
   await navigator.clipboard?.writeText(`${base}#trip=${encodeTrip(trip)}`);
 }
 
