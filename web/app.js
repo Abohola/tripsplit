@@ -1,5 +1,5 @@
 const STORAGE_KEY = "tripsplit.web.v1";
-const WEB_VERSION = "0.1.7";
+const WEB_VERSION = "0.1.8";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const EXPENSE_TYPE_PRESETS = [
   "Groceries",
@@ -20,6 +20,7 @@ let trips = loadTrips();
 let currentTripId = trips[0]?.id ?? null;
 let currentMemberId = trips[0]?.members[0]?.id ?? null;
 let selectedTab = "expenses";
+let receiptItemSequence = 0;
 
 importTripFromHash();
 render();
@@ -53,9 +54,21 @@ document.addEventListener("submit", (event) => {
 
 document.addEventListener("click", (event) => {
   const button = event.target.closest("[data-action]");
-  if (!(button instanceof HTMLElement) || button.closest("form")) return;
+  if (!(button instanceof HTMLElement)) return;
   const action = button.dataset.action;
   const id = button.dataset.id;
+
+  if (action === "add-receipt-item") {
+    addReceiptItemRow(button.closest("form"));
+    return;
+  }
+  if (action === "remove-receipt-item") {
+    const form = button.closest("form");
+    button.closest(".receipt-item-editor")?.remove();
+    updateReceiptDifference(form);
+    return;
+  }
+  if (button.closest("form")) return;
 
   if (action === "open-trip") openTrip(id);
   if (action === "show-entry") {
@@ -80,6 +93,23 @@ document.addEventListener("change", (event) => {
     currentMemberId = target.value;
     render();
   }
+  if (target instanceof HTMLInputElement && target.name === "splitMode") {
+    syncReceiptMode(target.form);
+  }
+  if (target instanceof HTMLInputElement && target.name === "receiptImage" && target.files?.[0]) {
+    scanReceiptImage(target.form, target.files[0]);
+  }
+  if (target instanceof HTMLInputElement && target.name === "participant") {
+    syncGroupSelection(target.form, target);
+  }
+  if (target instanceof HTMLInputElement && target.name === "itemParticipant") {
+    updatePeopleSummary(target.closest(".people-menu"), "assigned");
+  }
+});
+
+document.addEventListener("input", (event) => {
+  const form = event.target.closest?.('form[data-action="add-expense"]');
+  if (form) updateReceiptDifference(form);
 });
 
 function render() {
@@ -208,6 +238,19 @@ function expensesTemplate(trip, member) {
       </label>
       <label>Custom note (optional)<input name="title" autocomplete="off" ${trip.isEnded ? "disabled" : ""} /></label>
       <label>Amount<input name="amount" inputmode="decimal" ${trip.isEnded ? "disabled" : "required"} /></label>
+      <fieldset class="split-method">
+        <legend>Split method</legend>
+        <div class="mode-switch">
+          <label>
+            <input type="radio" name="splitMode" value="equal" checked ${trip.isEnded ? "disabled" : ""} />
+            <span>Equal split</span>
+          </label>
+          <label>
+            <input type="radio" name="splitMode" value="items" ${trip.isEnded ? "disabled" : ""} />
+            <span>Receipt items</span>
+          </label>
+        </div>
+      </fieldset>
       ${payerPickerTemplate(trip, member)}
       <details class="people-menu">
         <summary>${trip.members.length} people selected</summary>
@@ -224,6 +267,23 @@ function expensesTemplate(trip, member) {
             .join("")}
         </div>
       </details>
+      <section class="receipt-builder" hidden>
+        <div>
+          <h3>Receipt items</h3>
+          <p class="muted receipt-help">Every item starts shared by the selected group. Change only the exceptions.</p>
+        </div>
+        <div class="receipt-tools">
+          <label class="upload-button">
+            <span>Scan receipt</span>
+            <input type="file" name="receiptImage" accept="image/*" capture="environment" ${trip.isEnded ? "disabled" : ""} />
+          </label>
+          <button class="secondary" type="button" data-action="add-receipt-item" ${trip.isEnded ? "disabled" : ""}>Add item</button>
+        </div>
+        <p class="scan-status muted" aria-live="polite"></p>
+        <div class="receipt-items"></div>
+        <div class="receipt-difference" aria-live="polite"></div>
+      </section>
+      <p class="form-status" role="alert"></p>
       <button type="submit" ${trip.isEnded ? "disabled" : ""}>Add expense</button>
     </form>
 
@@ -292,9 +352,26 @@ function expenseTemplate(trip, expense) {
           <h3>${escapeHtml(expense.title)}</h3>
           <span class="muted">Paid by ${escapeHtml(memberName(trip, expense.payerId))}</span><br />
           <span class="muted">For ${expense.participantIds.map((id) => escapeHtml(memberName(trip, id))).join(", ")}</span>
+          ${expense.items?.length ? `<br /><span class="receipt-count">${expense.items.length} receipt items</span>` : ""}
         </div>
         <span class="amount">${formatMoney(expense.amountCents)}</span>
       </div>
+      ${expense.items?.length ? `
+        <details class="expense-items">
+          <summary>View item split</summary>
+          <div>
+            ${expense.items.map((item) => `
+              <div class="expense-item-line">
+                <span>
+                  <strong>${escapeHtml(item.name)}</strong><br />
+                  <small>${item.participantIds.map((id) => escapeHtml(memberName(trip, id))).join(", ")}</small>
+                </span>
+                <span class="item-amount">${formatMoney(item.amountCents)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </details>
+      ` : ""}
     </div>
   `;
 }
@@ -440,9 +517,45 @@ function addExpense(form) {
   const requestedPayerId = String(data.get("payerId") ?? member.id);
   const payerId = member.isAdmin ? requestedPayerId : member.id;
   const participantIds = data.getAll("participant").map(String);
+  const itemized = data.get("splitMode") === "items";
   const payerExists = trip.members.some((person) => person.id === payerId);
   if (!payerExists) return;
-  if (!title || amountCents <= 0 || participantIds.length === 0) return;
+  if (!title || amountCents <= 0 || participantIds.length === 0) {
+    setFormStatus(form, "Add an amount and choose who shared this expense.");
+    return;
+  }
+
+  let items = [];
+  if (itemized) {
+    const parsed = [...form.querySelectorAll(".receipt-item-editor")].map((row) => ({
+      id: row.dataset.itemId,
+      name: row.querySelector('[name="itemName"]')?.value.trim() ?? "",
+      amountCents: parseAmountCents(row.querySelector('[name="itemAmount"]')?.value ?? ""),
+      participantIds: [...row.querySelectorAll('[name="itemParticipant"]:checked')].map((input) => input.value),
+    }));
+    if (!parsed.length) {
+      setFormStatus(form, "Scan a receipt or add at least one item.");
+      return;
+    }
+    if (parsed.some((item) => !item.name || item.amountCents <= 0 || !item.participantIds.length)) {
+      setFormStatus(form, "Complete every item and choose who used it.");
+      return;
+    }
+    const itemTotal = parsed.reduce((sum, item) => sum + item.amountCents, 0);
+    if (itemTotal > amountCents) {
+      setFormStatus(form, "Item totals are higher than the receipt total.");
+      return;
+    }
+    items = parsed;
+    if (itemTotal < amountCents) {
+      items.push({
+        id: newId("item"),
+        name: "Tax, fees, and rounding",
+        amountCents: amountCents - itemTotal,
+        participantIds,
+      });
+    }
+  }
 
   trip.expenses.push({
     id: newId("expense"),
@@ -451,6 +564,7 @@ function addExpense(form) {
     payerId,
     participantIds,
     createdAt: Date.now(),
+    items,
   });
 
   saveTrips();
@@ -531,12 +645,14 @@ function memberBalances(trip) {
     if (!participants.length || !Object.hasOwn(balances, expense.payerId) || expense.amountCents <= 0) continue;
 
     balances[expense.payerId] += expense.amountCents;
-    const baseShare = Math.floor(expense.amountCents / participants.length);
-    let remainder = expense.amountCents % participants.length;
-    for (const participantId of participants) {
-      const share = baseShare + (remainder > 0 ? 1 : 0);
-      remainder = Math.max(0, remainder - 1);
-      balances[participantId] -= share;
+    const validItems = (expense.items ?? []).filter(
+      (item) => item.amountCents > 0 && item.participantIds?.some((id) => Object.hasOwn(balances, id)),
+    );
+    const itemTotal = validItems.reduce((sum, item) => sum + item.amountCents, 0);
+    if (validItems.length && itemTotal === expense.amountCents) {
+      for (const item of validItems) subtractShares(balances, item.amountCents, item.participantIds);
+    } else {
+      subtractShares(balances, expense.amountCents, participants);
     }
   }
 
@@ -544,6 +660,166 @@ function memberBalances(trip) {
     memberId: member.id,
     balanceCents: balances[member.id] ?? 0,
   }));
+}
+
+function subtractShares(balances, amountCents, participantIds) {
+  const participants = [...new Set(participantIds)].filter((id) => Object.hasOwn(balances, id));
+  if (!participants.length) return;
+  const baseShare = Math.floor(amountCents / participants.length);
+  let remainder = amountCents % participants.length;
+  for (const participantId of participants) {
+    const share = baseShare + (remainder > 0 ? 1 : 0);
+    remainder = Math.max(0, remainder - 1);
+    balances[participantId] -= share;
+  }
+}
+
+function syncReceiptMode(form) {
+  if (!form) return;
+  const receiptBuilder = form.querySelector(".receipt-builder");
+  if (receiptBuilder) receiptBuilder.hidden = new FormData(form).get("splitMode") !== "items";
+}
+
+function syncGroupSelection(form, changedInput) {
+  if (!form) return;
+  const currentGroup = [...form.querySelectorAll('[name="participant"]:checked')].map((input) => input.value);
+  const previousGroup = changedInput.checked
+    ? currentGroup.filter((id) => id !== changedInput.value)
+    : [...currentGroup, changedInput.value];
+  for (const row of form.querySelectorAll(".receipt-item-editor")) {
+    const itemChecks = [...row.querySelectorAll('[name="itemParticipant"]')];
+    const selected = itemChecks.filter((input) => input.checked).map((input) => input.value);
+    if (sameIds(selected, previousGroup)) {
+      itemChecks.forEach((input) => { input.checked = currentGroup.includes(input.value); });
+      updatePeopleSummary(row.querySelector(".people-menu"), "assigned");
+    }
+  }
+  updatePeopleSummary(changedInput.closest(".people-menu"), "selected");
+}
+
+function updatePeopleSummary(menu, suffix) {
+  if (!menu) return;
+  const count = menu.querySelectorAll('input[type="checkbox"]:checked').length;
+  const noun = count === 1 ? "person" : "people";
+  const summary = menu.querySelector("summary");
+  if (summary) summary.textContent = `${count} ${noun} ${suffix}`;
+}
+
+function sameIds(left, right) {
+  return left.length === right.length && left.every((id) => right.includes(id));
+}
+
+function addReceiptItemRow(form, item = {}) {
+  if (!form) return;
+  const trip = currentTrip();
+  if (!trip) return;
+  const groupIds = [...form.querySelectorAll('[name="participant"]:checked')].map((input) => input.value);
+  const participantIds = item.participantIds?.length ? item.participantIds : groupIds;
+  const itemId = item.id ?? `draft_${receiptItemSequence += 1}`;
+  form.querySelector(".receipt-items")?.insertAdjacentHTML(
+    "beforeend",
+    `<article class="receipt-item-editor" data-item-id="${escapeHtml(itemId)}">
+      <div class="receipt-item-fields">
+        <label>Item<input name="itemName" value="${escapeHtml(item.name ?? "")}" autocomplete="off" /></label>
+        <label>Item total<input name="itemAmount" value="${escapeHtml(item.amount ?? "")}" inputmode="decimal" /></label>
+      </div>
+      <details class="people-menu">
+        <summary>${participantIds.length} people assigned</summary>
+        <div class="people-list">
+          ${trip.members.map((person) => `
+            <label class="check-row">
+              <input type="checkbox" name="itemParticipant" value="${person.id}" ${participantIds.includes(person.id) ? "checked" : ""} />
+              <span>${escapeHtml(person.name)}</span>
+            </label>
+          `).join("")}
+        </div>
+      </details>
+      <button class="remove-item" type="button" data-action="remove-receipt-item">Remove item</button>
+    </article>`,
+  );
+  updateReceiptDifference(form);
+}
+
+async function scanReceiptImage(form, file) {
+  if (!form) return;
+  const status = form.querySelector(".scan-status");
+  if (!window.Tesseract) {
+    if (status) status.textContent = "Receipt scanner could not load. Add items manually.";
+    return;
+  }
+  if (status) status.textContent = "Reading receipt on this device...";
+  try {
+    const result = await window.Tesseract.recognize(file, "eng", {
+      logger: (progress) => {
+        if (status && progress.status === "recognizing text") {
+          status.textContent = `Reading receipt ${Math.round((progress.progress ?? 0) * 100)}%`;
+        }
+      },
+    });
+    const parsedItems = parseReceiptText(result.data.text);
+    const detectedTotal = findReceiptTotalCents(result.data.text);
+    form.querySelector(".receipt-items").innerHTML = "";
+    parsedItems.forEach((item) => addReceiptItemRow(form, item));
+    const amountInput = form.querySelector('[name="amount"]');
+    if (amountInput && !amountInput.value && detectedTotal) amountInput.value = formatEditableAmount(detectedTotal);
+    if (status) {
+      status.textContent = parsedItems.length
+        ? `Found ${parsedItems.length} items. Check every line before saving.`
+        : "No item lines found. Add them manually.";
+    }
+    updateReceiptDifference(form);
+  } catch {
+    if (status) status.textContent = "Could not read this receipt. Try a clearer photo or add items manually.";
+  }
+}
+
+function parseReceiptText(text) {
+  const ignored = ["subtotal", "sub total", "total", "vat", "tax", "cash", "card", "visa", "mastercard", "change", "balance", "discount", "receipt", "invoice", "amount due", "tender", "payment"];
+  return text.split(/\r?\n/).map((line) => line.trim()).map((line) => {
+    const normalized = line.toLowerCase();
+    if (line.length < 3 || ignored.some((word) => normalized.includes(word))) return null;
+    const match = line.match(/(?:EGP|LE|L\.E\.?|\$)?\s*(-?\d[\d,]*(?:\.\d{1,2})?)\s*(?:EGP|LE|L\.E\.?)?$/i);
+    if (!match) return null;
+    const amountCents = parseAmountCents(match[1]);
+    const name = line.slice(0, match.index).trim().replace(/^[\d]+\s*[xX]\s*/, "").replace(/^[\s\-:.*]+|[\s\-:.*]+$/g, "");
+    return name.length >= 2 && /[A-Za-z]/.test(name) && amountCents > 0
+      ? { name, amount: formatEditableAmount(amountCents) }
+      : null;
+  }).filter(Boolean);
+}
+
+function findReceiptTotalCents(text) {
+  const totals = text.split(/\r?\n/).filter((line) => {
+    const normalized = line.toLowerCase();
+    return normalized.includes("total") && !normalized.includes("subtotal") && !normalized.includes("sub total");
+  }).map((line) => line.match(/(?:EGP|LE|L\.E\.?|\$)?\s*(\d[\d,]*(?:\.\d{1,2})?)\s*(?:EGP|LE|L\.E\.?)?$/i))
+    .filter(Boolean).map((match) => parseAmountCents(match[1])).filter((amount) => amount > 0);
+  return totals.at(-1) ?? 0;
+}
+
+function updateReceiptDifference(form) {
+  if (!form) return;
+  const total = parseAmountCents(form.querySelector('[name="amount"]')?.value ?? "");
+  const itemTotal = [...form.querySelectorAll('[name="itemAmount"]')]
+    .reduce((sum, input) => sum + parseAmountCents(input.value), 0);
+  const output = form.querySelector(".receipt-difference");
+  if (!output || total <= 0) return;
+  const difference = total - itemTotal;
+  output.classList.toggle("error", difference < 0);
+  output.textContent = difference > 0
+    ? `Tax, fees, or unlisted difference: ${formatMoney(difference)}`
+    : difference < 0
+      ? `Items exceed the receipt by ${formatMoney(-difference)}`
+      : "Items match the receipt total";
+}
+
+function setFormStatus(form, message) {
+  const output = form.querySelector(".form-status");
+  if (output) output.textContent = message;
+}
+
+function formatEditableAmount(cents) {
+  return (cents / 100).toFixed(2).replace(/\.00$/, "");
 }
 
 function transfers(trip) {

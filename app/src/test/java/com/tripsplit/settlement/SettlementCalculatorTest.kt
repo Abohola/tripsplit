@@ -1,6 +1,7 @@
 package com.tripsplit.settlement
 
 import com.tripsplit.data.Expense
+import com.tripsplit.data.ExpenseItem
 import com.tripsplit.data.Member
 import com.tripsplit.data.Trip
 import org.junit.Assert.assertEquals
@@ -123,6 +124,52 @@ class SettlementCalculatorTest {
         assertEquals(
             listOf(Transfer(fromMemberId = "b", toMemberId = "a", amountCents = 4_000L)),
             SettlementCalculator.transfers(trip),
+        )
+    }
+
+    @Test
+    fun itemizedReceiptAssignsPrivateItemAndSharesTheRest() {
+        val members = listOf(
+            Member("payer", "Payer"),
+            Member("x", "X"),
+            Member("b", "B"),
+            Member("c", "C"),
+            Member("d", "D"),
+            Member("e", "E"),
+        )
+        val groupIds = members.map { it.id }
+        val trip = Trip(
+            id = "trip",
+            name = "Groceries",
+            code = "ITEM01",
+            createdAt = 0L,
+            members = members,
+            expenses = listOf(
+                Expense(
+                    id = "receipt",
+                    title = "Groceries",
+                    amountCents = 300_000L,
+                    payerId = "payer",
+                    participantIds = groupIds,
+                    createdAt = 1L,
+                    items = listOf(
+                        ExpenseItem("shared", "Shared groceries", 290_000L, groupIds),
+                        ExpenseItem("redbull", "Redbull", 10_000L, listOf("x")),
+                    ),
+                ),
+            ),
+        )
+
+        assertEquals(
+            listOf(
+                MemberBalance("payer", 251_666L),
+                MemberBalance("x", -58_334L),
+                MemberBalance("b", -48_333L),
+                MemberBalance("c", -48_333L),
+                MemberBalance("d", -48_333L),
+                MemberBalance("e", -48_333L),
+            ),
+            SettlementCalculator.memberBalances(trip),
         )
     }
 }

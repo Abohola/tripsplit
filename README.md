@@ -2,6 +2,8 @@
 
 TripSplit is a dark glassmorphic trip-expense splitter for groups of friends. Android users can install the APK, and iOS guests can use the hosted web companion.
 
+Itemized receipt expenses can be scanned on-device or entered manually. Every item defaults to the selected shopping group, then private items can be reassigned to one traveler or a smaller group before settlement.
+
 ## Android
 
 Build a debug APK:

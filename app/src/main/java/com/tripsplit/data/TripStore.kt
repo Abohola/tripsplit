@@ -54,6 +54,15 @@ class TripStore(context: Context) {
             payerId = optString("payerId"),
             participantIds = optJSONArray("participantIds").toStrings(),
             createdAt = optLong("createdAt", System.currentTimeMillis()),
+            items = optJSONArray("items").toExpenseItems(),
+        )
+
+    private fun JSONObject.toExpenseItem(): ExpenseItem =
+        ExpenseItem(
+            id = optString("id"),
+            name = optString("name", "Item"),
+            amountCents = optLong("amountCents", 0L),
+            participantIds = optJSONArray("participantIds").toStrings(),
         )
 
     private fun JSONArray?.toMembers(): List<Member> {
@@ -70,6 +79,15 @@ class TripStore(context: Context) {
         return buildList {
             for (index in 0 until length()) {
                 add(getJSONObject(index).toExpense())
+            }
+        }
+    }
+
+    private fun JSONArray?.toExpenseItems(): List<ExpenseItem> {
+        if (this == null) return emptyList()
+        return buildList {
+            for (index in 0 until length()) {
+                add(getJSONObject(index).toExpenseItem())
             }
         }
     }
@@ -107,6 +125,14 @@ class TripStore(context: Context) {
             .put("payerId", payerId)
             .put("participantIds", JSONArray().apply { participantIds.forEach { put(it) } })
             .put("createdAt", createdAt)
+            .put("items", JSONArray().apply { items.forEach { put(it.toJson()) } })
+
+    private fun ExpenseItem.toJson(): JSONObject =
+        JSONObject()
+            .put("id", id)
+            .put("name", name)
+            .put("amountCents", amountCents)
+            .put("participantIds", JSONArray().apply { participantIds.forEach { put(it) } })
 
     private companion object {
         const val TRIPS_KEY = "trips"

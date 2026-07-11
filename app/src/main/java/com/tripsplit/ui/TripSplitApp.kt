@@ -1,6 +1,10 @@
 package com.tripsplit.ui
 
+import android.content.Context
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
@@ -52,6 +56,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,20 +77,27 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.FileProvider
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.tripsplit.data.Expense
+import com.tripsplit.data.ExpenseItem
 import com.tripsplit.data.Member
 import com.tripsplit.data.Trip
 import com.tripsplit.data.TripStore
 import com.tripsplit.data.memberName
+import com.tripsplit.receipt.ReceiptParser
 import com.tripsplit.settlement.SettlementCalculator
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
+import java.io.File
 import kotlin.random.Random
 
 private val GlassShape = RoundedCornerShape(8.dp)
@@ -118,6 +130,13 @@ private val ExpenseTypePresets = listOf(
     "Drinks",
     "Supplies",
     "Other",
+)
+
+private data class ExpenseItemDraft(
+    val id: String,
+    val name: String,
+    val amount: String,
+    val participantIds: Set<String>,
 )
 
 @Composable
@@ -200,7 +219,7 @@ fun TripSplitApp(store: TripStore) {
         }
     }
 
-    val handleAddExpense: (String, Long, Set<String>, String) -> Unit = { rawTitle, amountCents, participantIds, payerId ->
+    val handleAddExpense: (String, Long, Set<String>, String, List<ExpenseItem>) -> Unit = { rawTitle, amountCents, participantIds, payerId, items ->
         val trip = currentTrip
         val title = rawTitle.trim()
         when {
@@ -219,6 +238,7 @@ fun TripSplitApp(store: TripStore) {
                     payerId = payerId,
                     participantIds = participantIds.toList(),
                     createdAt = System.currentTimeMillis(),
+                    items = items,
                 )
                 replaceTrip(trip.copy(expenses = trip.expenses + expense))
             }
@@ -415,7 +435,7 @@ private fun TripHomeScreen(
     currentMember: Member,
     onShowEntry: () -> Unit,
     onSwitchMember: (String) -> Unit,
-    onAddExpense: (String, Long, Set<String>, String) -> Unit,
+    onAddExpense: (String, Long, Set<String>, String, List<ExpenseItem>) -> Unit,
     onAddGuest: (String) -> Unit,
     onPromote: (String) -> Unit,
     onEndTrip: () -> Unit,
@@ -1080,15 +1100,75 @@ private fun ExpensePayerPicker(
 private fun ExpensesTab(
     trip: Trip,
     currentMember: Member,
-    onAddExpense: (String, Long, Set<String>, String) -> Unit,
+    onAddExpense: (String, Long, Set<String>, String, List<ExpenseItem>) -> Unit,
 ) {
     val context = LocalContext.current
     var title by rememberSaveable(trip.id) { mutableStateOf("") }
     var amount by rememberSaveable(trip.id) { mutableStateOf("") }
     var selectedExpenseType by rememberSaveable(trip.id) { mutableStateOf(ExpenseTypePresets.first()) }
     var selectedPayerId by rememberSaveable(trip.id) { mutableStateOf(currentMember.id) }
+    var itemizedMode by rememberSaveable(trip.id) { mutableStateOf(false) }
+    var itemDrafts by remember(trip.id) { mutableStateOf(emptyList<ExpenseItemDraft>()) }
+    var isScanning by remember(trip.id) { mutableStateOf(false) }
     var selectedParticipantIds by remember(trip.id, trip.members.map { it.id }) {
         mutableStateOf(trip.members.map { it.id }.toSet())
+    }
+    val textRecognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    fun applyReceiptText(rawText: String) {
+        val parsedItems = ReceiptParser.parse(rawText)
+        val detectedTotal = ReceiptParser.findTotalCents(rawText)
+        if (parsedItems.isEmpty()) {
+            toast(context, "No item lines found. Add them manually.")
+        } else {
+            itemizedMode = true
+            itemDrafts = parsedItems.map { item ->
+                ExpenseItemDraft(
+                    id = newId("item"),
+                    name = item.name,
+                    amount = BigDecimal(item.amountCents).movePointLeft(2).stripTrailingZeros().toPlainString(),
+                    participantIds = selectedParticipantIds,
+                )
+            }
+            if (amount.isBlank() && detectedTotal != null) {
+                amount = BigDecimal(detectedTotal).movePointLeft(2).stripTrailingZeros().toPlainString()
+            }
+            toast(context, "Receipt read. Check every item before saving.")
+        }
+    }
+
+    fun recognize(image: InputImage) {
+        isScanning = true
+        textRecognizer.process(image)
+            .addOnSuccessListener { result ->
+                isScanning = false
+                applyReceiptText(result.text)
+            }
+            .addOnFailureListener {
+                isScanning = false
+                toast(context, "Could not read this receipt. Try a clearer photo.")
+            }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { captured ->
+        val uri = pendingCameraUri
+        if (captured && uri != null) {
+            runCatching { InputImage.fromFilePath(context, uri) }
+                .onSuccess(::recognize)
+                .onFailure { toast(context, "Could not open the camera image") }
+        }
+    }
+    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            runCatching { InputImage.fromFilePath(context, uri) }
+                .onSuccess(::recognize)
+                .onFailure { toast(context, "Could not open that image") }
+        }
+    }
+
+    DisposableEffect(textRecognizer) {
+        onDispose { textRecognizer.close() }
     }
 
     LaunchedEffect(trip.members, currentMember) {
@@ -1148,6 +1228,30 @@ private fun ExpensesTab(
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
+            Text(
+                text = "Split method",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                LiquidModeButton(
+                    text = "Equal split",
+                    selected = !itemizedMode,
+                    onClick = { itemizedMode = false },
+                    modifier = Modifier.weight(1f),
+                )
+                LiquidModeButton(
+                    text = "Receipt items",
+                    selected = itemizedMode,
+                    onClick = { itemizedMode = true },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(Modifier.height(12.dp))
             if (currentMember.isAdmin) {
                 Text(
                     text = "Paid by",
@@ -1169,8 +1273,95 @@ private fun ExpensesTab(
                 members = trip.members,
                 selectedIds = selectedParticipantIds,
                 enabled = !trip.isEnded,
-                onSelectionChange = { selectedParticipantIds = it },
+                onSelectionChange = { nextSelection ->
+                    val previousSelection = selectedParticipantIds
+                    selectedParticipantIds = nextSelection
+                    itemDrafts = itemDrafts.map { item ->
+                        if (item.participantIds == previousSelection) item.copy(participantIds = nextSelection) else item
+                    }
+                },
             )
+            if (itemizedMode) {
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "Receipt items",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "Items start shared by the selected group. Change only the exceptions.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    LiquidSecondaryButton(
+                        text = if (isScanning) "Reading..." else "Camera",
+                        onClick = {
+                            runCatching { createReceiptImageUri(context) }
+                                .onSuccess { uri ->
+                                    pendingCameraUri = uri
+                                    cameraLauncher.launch(uri)
+                                }
+                                .onFailure { toast(context, "Could not start the camera") }
+                        },
+                        enabled = !trip.isEnded && !isScanning,
+                        modifier = Modifier.weight(1f),
+                    )
+                    LiquidSecondaryButton(
+                        text = "Photo",
+                        onClick = { photoLauncher.launch("image/*") },
+                        enabled = !trip.isEnded && !isScanning,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
+                itemDrafts.forEach { item ->
+                    ReceiptItemEditor(
+                        item = item,
+                        members = trip.members,
+                        enabled = !trip.isEnded,
+                        onChange = { updated ->
+                            itemDrafts = itemDrafts.map { if (it.id == updated.id) updated else it }
+                        },
+                        onRemove = { itemDrafts = itemDrafts.filterNot { it.id == item.id } },
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
+                LiquidSecondaryButton(
+                    text = "Add item",
+                    onClick = {
+                        itemDrafts = itemDrafts + ExpenseItemDraft(
+                            id = newId("item"),
+                            name = "",
+                            amount = "",
+                            participantIds = selectedParticipantIds,
+                        )
+                    },
+                    enabled = !trip.isEnded,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val enteredItemsTotal = itemDrafts.sumOf { parseAmountCents(it.amount) ?: 0L }
+                val enteredReceiptTotal = parseAmountCents(amount) ?: 0L
+                if (enteredReceiptTotal > 0L) {
+                    val difference = enteredReceiptTotal - enteredItemsTotal
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = when {
+                            difference > 0L -> "Tax, fees, or unlisted difference: ${formatMoney(difference)}"
+                            difference < 0L -> "Items exceed the receipt by ${formatMoney(-difference)}"
+                            else -> "Items match the receipt total"
+                        },
+                        color = if (difference < 0L) AccentCoral else Sand,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
             Spacer(Modifier.height(12.dp))
             LiquidPrimaryButton(
                 text = "Add expense",
@@ -1180,11 +1371,40 @@ private fun ExpensesTab(
                         toast(context, "Enter a valid amount")
                     } else {
                         val expenseTitle = title.trim().ifBlank { selectedExpenseType }
-                        onAddExpense(expenseTitle, cents, selectedParticipantIds, selectedPayerId)
-                        title = ""
-                        amount = ""
-                        selectedExpenseType = ExpenseTypePresets.first()
-                        selectedParticipantIds = trip.members.map { it.id }.toSet()
+                        val parsedItems = if (itemizedMode) {
+                            itemDrafts.mapNotNull { item ->
+                                val itemCents = parseAmountCents(item.amount)
+                                if (item.name.isBlank() || itemCents == null || item.participantIds.isEmpty()) null
+                                else ExpenseItem(item.id, item.name.trim(), itemCents, item.participantIds.toList())
+                            }
+                        } else {
+                            emptyList()
+                        }
+                        val itemsTotal = parsedItems.sumOf { it.amountCents }
+                        when {
+                            itemizedMode && parsedItems.size != itemDrafts.size ->
+                                toast(context, "Complete each item and choose who used it")
+                            itemizedMode && parsedItems.isEmpty() ->
+                                toast(context, "Add or scan at least one receipt item")
+                            itemizedMode && itemsTotal > cents ->
+                                toast(context, "Item total is higher than the receipt total")
+                            else -> {
+                                val finalItems = if (itemizedMode && itemsTotal < cents) {
+                                    parsedItems + ExpenseItem(
+                                        id = newId("item"),
+                                        name = "Tax, fees, and rounding",
+                                        amountCents = cents - itemsTotal,
+                                        participantIds = selectedParticipantIds.toList(),
+                                    )
+                                } else parsedItems
+                                onAddExpense(expenseTitle, cents, selectedParticipantIds, selectedPayerId, finalItems)
+                                title = ""
+                                amount = ""
+                                selectedExpenseType = ExpenseTypePresets.first()
+                                selectedParticipantIds = trip.members.map { it.id }.toSet()
+                                itemDrafts = emptyList()
+                            }
+                        }
                     }
                 },
                 enabled = !trip.isEnded,
@@ -1252,6 +1472,76 @@ private fun PeopleDropdown(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ReceiptItemEditor(
+    item: ExpenseItemDraft,
+    members: List<Member>,
+    enabled: Boolean,
+    onChange: (ExpenseItemDraft) -> Unit,
+    onRemove: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(GlassShape)
+            .background(DeepInk.copy(alpha = 0.58f))
+            .border(BorderStroke(1.dp, GlassBorder), GlassShape)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        OutlinedTextField(
+            value = item.name,
+            onValueChange = { onChange(item.copy(name = it)) },
+            label = { Text("Item") },
+            singleLine = true,
+            enabled = enabled,
+            colors = glassTextFieldColors(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = item.amount,
+            onValueChange = { onChange(item.copy(amount = it)) },
+            label = { Text("Item total") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            singleLine = true,
+            enabled = enabled,
+            colors = glassTextFieldColors(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        PeopleDropdown(
+            members = members,
+            selectedIds = item.participantIds,
+            enabled = enabled,
+            onSelectionChange = { onChange(item.copy(participantIds = it)) },
+        )
+        TextButton(onClick = onRemove, enabled = enabled) {
+            Text("Remove item", color = AccentCoral, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun LiquidModeButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Button(
+        onClick = onClick,
+        shape = LiquidShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) Sand else DeepInk.copy(alpha = 0.84f),
+            contentColor = if (selected) InkOnGlow else Color.White,
+        ),
+        border = BorderStroke(1.dp, if (selected) Cream.copy(alpha = 0.78f) else GlassBorder),
+        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 10.dp),
+        modifier = modifier.height(48.dp),
+    ) {
+        Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.ExtraBold)
     }
 }
 
@@ -1404,6 +1694,14 @@ private fun ExpenseCard(trip: Trip, expense: Expense) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (expense.items.isNotEmpty()) {
+                        Text(
+                            "${expense.items.size} receipt items",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Sand,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -1420,6 +1718,34 @@ private fun ExpenseCard(trip: Trip, expense: Expense) {
                     fontWeight = FontWeight.ExtraBold,
                     color = Sand,
                 )
+            }
+        }
+        if (expense.items.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            GlassDivider()
+            expense.items.forEach { item ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(item.name, style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                        Text(
+                            item.participantIds.joinToString { trip.memberName(it) },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        formatMoney(item.amountCents),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Sand,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
         }
     }
@@ -2116,8 +2442,14 @@ private fun randomCode(existingCodes: Set<String>): String {
     return newId("code").takeLast(6).uppercase()
 }
 
-private fun toast(context: android.content.Context, message: String) {
+private fun toast(context: Context, message: String) {
     Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+}
+
+private fun createReceiptImageUri(context: Context): Uri {
+    val directory = File(context.cacheDir, "receipts").apply { mkdirs() }
+    val image = File.createTempFile("receipt_", ".jpg", directory)
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", image)
 }
 
 private const val CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"

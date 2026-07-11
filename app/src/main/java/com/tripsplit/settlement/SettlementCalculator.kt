@@ -26,16 +26,19 @@ object SettlementCalculator {
 
             balances[expense.payerId] = balances.getValue(expense.payerId) + expense.amountCents
 
-            val baseShare = expense.amountCents / participants.size
-            var remainder = expense.amountCents % participants.size
-            participants.forEach { participantId ->
-                val share = baseShare + if (remainder > 0L) {
-                    remainder -= 1L
-                    1L
-                } else {
-                    0L
+            val validItems = expense.items.filter { item ->
+                item.amountCents > 0L && item.participantIds.any { balances.containsKey(it) }
+            }
+            if (validItems.isNotEmpty() && validItems.sumOf { it.amountCents } == expense.amountCents) {
+                validItems.forEach { item ->
+                    subtractShares(
+                        balances = balances,
+                        amountCents = item.amountCents,
+                        participantIds = item.participantIds,
+                    )
                 }
-                balances[participantId] = balances.getValue(participantId) - share
+            } else {
+                subtractShares(balances, expense.amountCents, participants)
             }
         }
 
@@ -87,4 +90,24 @@ object SettlementCalculator {
         val memberId: String,
         val amountCents: Long,
     )
+
+    private fun subtractShares(
+        balances: MutableMap<String, Long>,
+        amountCents: Long,
+        participantIds: List<String>,
+    ) {
+        val participants = participantIds.distinct().filter { balances.containsKey(it) }
+        if (participants.isEmpty()) return
+        val baseShare = amountCents / participants.size
+        var remainder = amountCents % participants.size
+        participants.forEach { participantId ->
+            val share = baseShare + if (remainder > 0L) {
+                remainder -= 1L
+                1L
+            } else {
+                0L
+            }
+            balances[participantId] = balances.getValue(participantId) - share
+        }
+    }
 }

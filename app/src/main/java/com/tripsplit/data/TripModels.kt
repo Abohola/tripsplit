@@ -23,6 +23,14 @@ data class Expense(
     val payerId: String,
     val participantIds: List<String>,
     val createdAt: Long,
+    val items: List<ExpenseItem> = emptyList(),
+)
+
+data class ExpenseItem(
+    val id: String,
+    val name: String,
+    val amountCents: Long,
+    val participantIds: List<String>,
 )
 
 fun Trip.memberName(memberId: String): String =
