@@ -1,5 +1,5 @@
 const STORAGE_KEY = "tripsplit.web.v1";
-const WEB_VERSION = "0.1.6";
+const WEB_VERSION = "0.1.7";
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const EXPENSE_TYPE_PRESETS = [
   "Groceries",
@@ -98,7 +98,6 @@ function entryTemplate() {
   return `
     <section class="topbar glass">
       <div class="brand">
-        <img class="brand-logo" src="assets/app-logo.png" alt="" />
         <div>
           <h1>TripSplit</h1>
           <span>Tropical group wallet</span>
@@ -151,7 +150,6 @@ function homeTemplate(trip, member) {
   return `
     <section class="topbar glass">
       <div class="brand">
-        <img class="brand-logo" src="assets/app-logo.png" alt="" />
         <div>
           <h1>${escapeHtml(trip.name)}</h1>
           <span>Code ${escapeHtml(trip.code)}</span>

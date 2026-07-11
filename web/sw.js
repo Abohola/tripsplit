@@ -1,4 +1,4 @@
-const CACHE_NAME = "tripsplit-web-v5";
+const CACHE_NAME = "tripsplit-web-v6";
 const ASSETS = [
   "./",
   "./index.html",

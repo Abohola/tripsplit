@@ -11,7 +11,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -71,10 +70,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -85,7 +82,6 @@ import com.tripsplit.data.Member
 import com.tripsplit.data.Trip
 import com.tripsplit.data.TripStore
 import com.tripsplit.data.memberName
-import com.tripsplit.R
 import com.tripsplit.settlement.SettlementCalculator
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -434,7 +430,8 @@ private fun TripHomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState()),
             ) {
                 TravelTripHero(
                     trip = trip,
@@ -637,21 +634,14 @@ private fun TravelTripHero(
             .border(BorderStroke(1.dp, Cream.copy(alpha = 0.34f)), PosterShape),
     ) {
         TravelSceneCanvas(showBus = false, modifier = Modifier.fillMaxSize())
-        Row(
+        LiquidSecondaryButton(
+            text = "Trips",
+            onClick = onShowEntry,
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .fillMaxWidth()
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            LogoMark(size = 44)
-            LiquidSecondaryButton(
-                text = "Trips",
-                onClick = onShowEntry,
-                modifier = Modifier.widthIn(min = 92.dp),
-            )
-        }
+                .align(Alignment.TopEnd)
+                .padding(18.dp)
+                .widthIn(min = 92.dp),
+        )
         Column(
             modifier = Modifier
                 .align(Alignment.Center)
@@ -939,18 +929,18 @@ private fun LiquidTabBar(
                 ),
                 LiquidShape,
             )
-            .padding(5.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp),
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         tabs.forEachIndexed { index, title ->
             val selected = selectedTab == index
             val tabWeight = when (title) {
-                "Expenses" -> 1.22f
-                "Summary" -> 1.18f
-                else -> 0.92f
+                "Expenses" -> 1.28f
+                "Summary" -> 1.24f
+                else -> 0.88f
             }
             val tabMinWidth = when (title) {
-                "Expenses", "Summary" -> 104.dp
+                "Expenses", "Summary" -> 108.dp
                 else -> 78.dp
             }
             val accent = when (index) {
@@ -975,7 +965,7 @@ private fun LiquidTabBar(
                 modifier = Modifier
                     .weight(tabWeight)
                     .widthIn(min = tabMinWidth)
-                    .height(50.dp)
+                    .height(52.dp)
                     .scale(scale)
                     .clip(LiquidShape)
                     .background(
@@ -1011,11 +1001,12 @@ private fun LiquidTabBar(
             ) {
                 Text(
                     text = title,
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier.padding(horizontal = 16.dp),
                     color = if (selected) InkOnGlow else Cream.copy(alpha = 0.88f),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -1112,13 +1103,17 @@ private fun ExpensesTab(
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .fillMaxWidth()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         SectionCard {
-            Text("New expense", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(
+                "New expense",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+            )
             Spacer(Modifier.height(12.dp))
             Text(
                 text = "Expense type",
@@ -1267,8 +1262,8 @@ private fun ExpenseTypePicker(
     onTypeSelected: (String) -> Unit,
 ) {
     FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
         ExpenseTypePresets.forEach { type ->
@@ -1295,7 +1290,6 @@ private fun LiquidChoiceChip(
     val scale by animateFloatAsState(
         targetValue = when {
             pressed -> 0.94f
-            selected -> 1.03f
             else -> 1f
         },
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
@@ -1326,9 +1320,9 @@ private fun LiquidChoiceChip(
             disabledContainerColor = Color.Transparent,
             disabledContentColor = Color.White.copy(alpha = 0.56f),
         ),
-        contentPadding = PaddingValues(horizontal = 13.dp, vertical = 0.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
         modifier = Modifier
-            .height(38.dp)
+            .height(44.dp)
             .scale(scale)
             .clip(LiquidShape)
             .background(brush)
@@ -1438,8 +1432,7 @@ private fun SummaryTab(trip: Trip) {
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .fillMaxWidth()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -1448,6 +1441,7 @@ private fun SummaryTab(trip: Trip) {
                 if (trip.isEnded) "Final settlement" else "Current settlement",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold,
+                color = Color.White,
             )
             Spacer(Modifier.height(12.dp))
             if (transfers.isEmpty()) {
@@ -1533,14 +1527,17 @@ private fun AdminTab(
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .fillMaxWidth()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (!currentMember.isAdmin) {
             SectionCard {
-                Text("Only admins can manage this trip", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Only admins can manage this trip",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Color.White,
+                )
             }
             return@Column
         }
@@ -1642,19 +1639,6 @@ private fun AdminTab(
             },
         )
     }
-}
-
-@Composable
-private fun LogoMark(size: Int) {
-    Image(
-        painter = painterResource(id = R.drawable.app_logo),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier
-            .size(size.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .border(BorderStroke(1.dp, GlassBorderBright), RoundedCornerShape(8.dp)),
-    )
 }
 
 @Composable
@@ -1825,7 +1809,10 @@ private fun SectionCard(
                 GlassShape,
             ),
         shape = GlassShape,
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+        ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
